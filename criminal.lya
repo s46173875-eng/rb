@@ -1,10 +1,10 @@
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui") -- Используем CoreGui для защиты ESP от стриминга игры
+local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Максимальное ускорение Lua-функций
+-- Локализация функций для максимального FPS
 local stringFind = string.find
 local mathFloor = math.floor
 local taskWait = task.wait
@@ -20,7 +20,7 @@ local LOOT_CONFIG = {
     LargeSafe   = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
     SuperSafe   = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
     ATM         = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
-    Safe        = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500}, -- Фикс для одиночных мешей
+    Safe        = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
     
     -- Динамические Боксы (100 метров)
     AirDrop     = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
@@ -35,20 +35,32 @@ local LOOT_CONFIG = {
     Scrap       = {text = "♻️ Мусор (Скрап)", color = Color3.fromRGB(30, 100, 255), isStatic = false, maxDist = 80}
 }
 
--- Создание визуальных элементов в безопасном хранилище
+-- Функция создания визуальных элементов
 local function CreateVisuals(obj, config)
     if lootCache[obj] then return end
 
-    -- Находим физическую основу объекта для привязки GUI и Чамсов
-    local rootPart = obj:IsA("BasePart") and obj or obj:FindFirstChildOfClass("BasePart")
+    -- Защита: только физические объекты
+    if not (obj:IsA("Model") or obj:IsA("MeshPart") or obj:IsA("BasePart")) then return end
+    
+    local nameLower = string.lower(obj.Name)
+    
+    -- ЧЕРНЫЙ СПИСОК: Игнорируем зоны, триггеры, а также открытые/сломанные части кейсов
+    if stringFind(nameLower, "zone") or stringFind(nameLower, "sky") or stringFind(nameLower, "hitbox") or
+       stringFind(nameLower, "open") or stringFind(nameLower, "broken") or stringFind(nameLower, "piece") or 
+       stringFind(nameLower, "part") or stringFind(nameLower, "lid") or stringFind(nameLower, "shattered") then 
+        return 
+    end
+
+    local rootPart = obj:IsA("BasePart") and obj or (obj.PrimaryPart or obj:FindFirstChildOfClass("BasePart"))
     if not rootPart then return end
 
     local billboard = Instance.new("BillboardGui")
-    billboard.Name = "__CriminalityLootESP"
+    billboard.Name = "__CrimLootESP"
     billboard.AlwaysOnTop = true
     billboard.Size = UDim2.new(0, 140, 0, 30)
+    billboard.StudsOffset = Vector3.new(0, 0, -0.1)
     billboard.Adornee = rootPart
-    billboard.Parent = CoreGui -- Прячем в CoreGui, чтобы обходить очистку карты игрой
+    billboard.Parent = CoreGui
 
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 1, 0)
@@ -61,7 +73,7 @@ local function CreateVisuals(obj, config)
     label.Parent = billboard
 
     local highlight = Instance.new("Highlight")
-    highlight.Name = "__CriminalityLootChams"
+    highlight.Name = "__CrimLootChams"
     highlight.FillColor = config.color
     highlight.FillTransparency = 0.4
     highlight.OutlineColor = Color3.new(1, 1, 1)
@@ -81,22 +93,8 @@ local function CreateVisuals(obj, config)
     }
 end
 
--- Сверхбыстрый событийный перехват без циклов
-Workspace.DescendantAdded:Connect(function(descendant)
-    local descName = descendant.Name
-    for nameKey, config in pairs(LOOT_CONFIG) do
-        if stringFind(descName, nameKey) then
-            -- Ждем 1 кадр, чтобы объект полностью загрузился в память
-            task.defer(CreateVisuals, descendant, config)
-            break
-        end
-    end
-end)
-
--- Первичный моментальный сбор при старте скрипта (без лагов)
-local startObjects = Workspace:GetDescendants()
-for i = 1, #startObjects do
-    local obj = startObjects[i]
+-- Проверка конкретного объекта
+local function TargetCheck(obj)
     local objName = obj.Name
     for nameKey, config in pairs(LOOT_CONFIG) do
         if stringFind(objName, nameKey) then
@@ -106,7 +104,60 @@ for i = 1, #startObjects do
     end
 end
 
--- Единый поток обработки дистанции и состояний взлома (0% влияния на FPS)
+-- Безопасный и глубокий сбор сейфов внутри папки Map (Глубокий поиск БЕЗ лагов)
+local function ScanMapFolder()
+    local mapFolder = Workspace:FindFirstChild("Map")
+    if mapFolder then
+        -- Проходим по ВСЕМ вложенным объектам карты (найдет сейфы на любой глубине моделей)
+        local mapObjects = mapFolder:GetDescendants()
+        for i = 1, #mapObjects do
+            TargetCheck(mapObjects[i])
+        end
+    end
+end
+
+-- Слушатель появления динамического лута на карте (для обхода StreamingEnabled)
+local function SetupListeners()
+    local mapFolder = Workspace:FindFirstChild("Map")
+    local bredMakurz = mapFolder and mapFolder:FindFirstChild("BredMakurz")
+    
+    if bredMakurz then
+        -- Как только сервер загрузит сейф глубоко в папку — мы его сразу поймаем
+        bredMakurz.DescendantAdded:Connect(TargetCheck)
+    elseif mapFolder then
+        mapFolder.DescendantAdded:Connect(TargetCheck)
+    end
+end
+
+-- Запуск системы слежения
+task.spawn(SetupListeners)
+
+-- Плавный цикл сканирования (Раз в 2.5 секунды)
+task.spawn(function()
+    while true do
+        -- 1. Глубокое сканирование сейфов строго внутри папки Map
+        ScanMapFolder()
+
+        -- 2. Сканируем корень Workspace (только верхний уровень — для боксов и мусора)
+        local wsChildren = Workspace:GetChildren()
+        for i = 1, #wsChildren do
+            TargetCheck(wsChildren[i])
+        end
+
+        -- Очистка кэша от удаленных предметов
+        for obj, data in pairs(lootCache) do
+            if not obj or not obj.Parent or not data.targetPart or not data.targetPart.Parent then
+                if data.billboard then data.billboard:Destroy() end
+                if data.highlight then data.highlight:Destroy() end
+                lootCache[obj] = nil
+            end
+        end
+
+        taskWait(2.5)
+    end
+end)
+
+-- Быстрый поток для обновления метров и проверки взлома
 task.spawn(function()
     while true do
         local char = LocalPlayer.Character
@@ -115,23 +166,18 @@ task.spawn(function()
         if hrp then
             local myPos = hrp.Position
             for obj, data in pairs(lootCache) do
-                -- Если объект удален сервером, мгновенно стираем его визуализацию
-                if not obj or not obj.Parent or not data.targetPart or not data.targetPart.Parent then
-                    if data.billboard then data.billboard:Destroy() end
-                    if data.highlight then data.highlight:Destroy() end
-                    lootCache[obj] = nil
-                else
+                if obj and obj.Parent and data.targetPart and data.targetPart.Parent then
                     local dist = mathFloor((myPos - data.targetPart.Position).Magnitude)
                     
                     if dist <= data.maxDist then
-                        -- Проверка состояния взлома (только для сейфов)
+                        -- Динамическая проверка взлома сейфа
                         local isBroken = false
                         if data.isStatic then
                             local values = obj:FindFirstChild("Values")
                             isBroken = values and values:FindFirstChild("Broken") and values.Broken.Value == true
                         end
                         
-                        -- Коррекция цветов
+                        -- Обновление цветов
                         local activeColor = isBroken and Color3.fromRGB(130, 35, 35) or data.defaultColor
                         data.label.TextColor3 = activeColor
                         data.highlight.FillColor = activeColor
@@ -139,17 +185,15 @@ task.spawn(function()
                         local status = data.isStatic and (isBroken and " [ВЗЛОМАН]" or "") or ""
                         data.label.Text = data.baseText .. status .. " [" .. dist .. "m]"
                         
-                        -- Включаем отображение
                         data.label.Visible = true
                         data.highlight.Enabled = true
                     else
-                        -- Отключаем элементы, если игрок ушел далеко
                         data.label.Visible = false
                         data.highlight.Enabled = false
                     end
                 end
             end
         end
-        taskWait(0.08) -- Идеальный баланс обновления дистанции без фризов
+        taskWait(0.1)
     end
 end)
