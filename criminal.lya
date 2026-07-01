@@ -3,38 +3,58 @@ local Players = game:GetService("Players")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Локализация для максимального FPS
 local stringFind = string.find
 local mathFloor = math.floor
 local taskWait = task.wait
 
 local lootCache = {}
 
--- Настройки дистанции и названий
+-- Расширенная конфигурация с учетом всех внутренних названий в Criminality
 local LOOT_CONFIG = {
-    -- Сейфы и кассы (Видимость: 500 метров)
-    Register = {text = "💰 Касса", color = Color3.fromRGB(0, 255, 100), isStatic = true, maxDist = 500},
-    SmallSafe = {text = "🔓 Сейф (М)", color = Color3.fromRGB(0, 180, 255), isStatic = true, maxDist = 500},
-    BigSafe = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    -- СЕЙФЫ И КАССЫ (500м)
+    Register    = {text = "💰 Касса", color = Color3.fromRGB(0, 255, 100), isStatic = true, maxDist = 500},
+    SmallSafe   = {text = "🔓 Сейф (М)", color = Color3.fromRGB(0, 180, 255), isStatic = true, maxDist = 500},
+    BigSafe     = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    LargeSafe   = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    SuperSafe   = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    ATM         = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
     
-    -- Динамический лут (Видимость изменена на 100 метров)
-    AirDrop = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
+    -- БОКСЫ И АИРДРОПЫ (100м) — Фикс для всех видов падающих ящиков
+    AirDrop     = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
     SupplyCrate = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
+    Supply      = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100}, -- Для Stationary_SupplyCrate
     WeaponCrate = {text = "⚔️ Ящик с оружием", color = Color3.fromRGB(255, 255, 0), isStatic = false, maxDist = 100},
-    LootCrate = {text = "📦 Лутбокс", color = Color3.fromRGB(255, 220, 50), isStatic = false, maxDist = 100},
-    Box = {text = "📦 Коробка", color = Color3.fromRGB(200, 200, 50), isStatic = false, maxDist = 100},
+    LootCrate   = {text = "📦 Лутбокс", color = Color3.fromRGB(255, 220, 50), isStatic = false, maxDist = 100},
+    Loot_Drop   = {text = "📦 Лутбокс", color = Color3.fromRGB(255, 220, 50), isStatic = false, maxDist = 100}, -- Падающий с неба лут
+    Drop        = {text = "📦 Коробка", color = Color3.fromRGB(200, 200, 50), isStatic = false, maxDist = 100},
+    Box         = {text = "📦 Коробка", color = Color3.fromRGB(200, 200, 50), isStatic = false, maxDist = 100},
+    Crate       = {text = "📦 Коробка", color = Color3.fromRGB(200, 200, 50), isStatic = false, maxDist = 100},
     
-    -- Мусор (Видимость: 80 метров)
-    Scrap = {text = "♻️ Мусор (Скрап)", color = Color3.fromRGB(30, 100, 255), isStatic = false, maxDist = 80}
+    -- МУСОР (80м)
+    Scrap       = {text = "♻️ Мусор (Скрап)", color = Color3.fromRGB(30, 100, 255), isStatic = false, maxDist = 80}
 }
 
--- Функция создания ESP
+-- Функция жесткого применения ESP
 local function CheckAndApply(obj)
     if not obj:IsA("Model") or lootCache[obj] then return end
     
     local objName = obj.Name
     for nameKey, config in pairs(LOOT_CONFIG) do
         if stringFind(objName, nameKey) then
+            -- Ждем появления хотя бы одной детали внутри ящика (фикс StreamingEnabled)
+            if not obj.PrimaryPart and not obj:FindFirstChildOfClass("BasePart") then
+                task.spawn(function()
+                    local childAddedConn
+                    childAddedConn = obj.ChildAdded:Connect(function()
+                        if obj:FindFirstChildOfClass("BasePart") then
+                            childAddedConn:Disconnect()
+                            CheckAndApply(obj)
+                        end
+                    end)
+                end)
+                return
+            end
+
             local billboard = Instance.new("BillboardGui")
             billboard.Name = "__SuperLootESP"
             billboard.AlwaysOnTop = true
@@ -76,16 +96,27 @@ local function CheckAndApply(obj)
     end
 end
 
--- Событийный запуск: моментально лочит объекты без циклов и лагов
+-- Мониторинг появления объектов
 Workspace.DescendantAdded:Connect(CheckAndApply)
 
--- Первичный быстрый сбор уже существующих моделей при старте
+-- Первичный сбор
 local currentDescendants = Workspace:GetDescendants()
 for i = 1, #currentDescendants do
     CheckAndApply(currentDescendants[i])
 end
 
--- Быстрый поток для дистанций, лимитов видимости и состояний взлома
+-- Периодическая фоновая проверка (страховка раз в 5 секунд на случай багов движка игры)
+task.spawn(function()
+    while true do
+        local all = Workspace:GetDescendants()
+        for i = 1, #all do
+            CheckAndApply(all[i])
+        end
+        taskWait(5.0)
+    end
+end)
+
+-- Быстрый поток для дистанций
 task.spawn(function()
     while true do
         local character = LocalPlayer.Character
@@ -100,29 +131,23 @@ task.spawn(function()
                 if rootPart and targetPart then
                     local dist = mathFloor((rootPart.Position - targetPart.Position).Magnitude)
                     
-                    -- Проверяем лимит дистанции
                     if dist <= data.maxDist then
-                        -- Динамическая проверка взлома сейфа
                         local isBroken = false
                         if data.isStatic then
                             local values = obj:FindFirstChild("Values")
                             isBroken = values and values:FindFirstChild("Broken") and values.Broken.Value == true
                         end
                         
-                        -- Обновляем состояние цвета
                         local activeColor = isBroken and Color3.fromRGB(130, 35, 35) or data.defaultColor
                         data.label.TextColor3 = activeColor
                         data.highlight.FillColor = activeColor
                         
-                        -- Выводим текст
                         local status = data.isStatic and (isBroken and " [ВЗЛОМАН]" or "") or ""
                         data.label.Text = data.baseText .. status .. " [" .. dist .. "m]"
                         
-                        -- Делаем видимыми, если в радиусе
                         data.label.Visible = true
                         data.highlight.Enabled = true
                     else
-                        -- Полностью скрываем и отключаем рендер, если объект слишком далеко
                         data.label.Visible = false
                         data.highlight.Enabled = false
                     end
@@ -133,6 +158,6 @@ task.spawn(function()
             end
         end
 
-        taskWait(0.1) -- 10 обновлений в секунду для плавного счетчика метров
+        taskWait(0.1)
     end
 end)
