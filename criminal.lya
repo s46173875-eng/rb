@@ -14,32 +14,46 @@ local lootCache = {}
 -- Оптимизированная структура настроек лута
 local LOOT_CONFIG = {
     -- Сейфы и кассы (500 метров)
-    Register    = {text = "💰 Касса", color = Color3.fromRGB(0, 255, 100), isStatic = true, maxDist = 500},
-    SmallSafe   = {text = "🔓 Сейф (М)", color = Color3.fromRGB(0, 180, 255), isStatic = true, maxDist = 500},
-    BigSafe     = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
-    LargeSafe   = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
-    SuperSafe   = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
-    ATM         = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
-    Safe        = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    ["Register"]    = {text = "💰 Касса", color = Color3.fromRGB(0, 255, 100), isStatic = true, maxDist = 500},
+    ["SmallSafe"]   = {text = "🔓 Сейф (М)", color = Color3.fromRGB(0, 180, 255), isStatic = true, maxDist = 500},
+    ["BigSafe"]     = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    ["LargeSafe"]   = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    ["SuperSafe"]   = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    ["ATM"]         = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    ["Safe"]        = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
     
     -- Динамические Боксы (100 метров)
-    AirDrop     = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
-    SupplyCrate = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
-    Supply      = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
-    WeaponCrate = {text = "⚔️ Ящик с оружием", color = Color3.fromRGB(255, 255, 0), isStatic = false, maxDist = 100},
-    LootCrate   = {text = "📦 Лутбокс", color = Color3.fromRGB(255, 220, 50), isStatic = false, maxDist = 100},
-    Box         = {text = "📦 Коробка", color = Color3.fromRGB(200, 200, 50), isStatic = false, maxDist = 100},
-    Crate       = {text = "📦 Коробка", color = Color3.fromRGB(200, 200, 50), isStatic = false, maxDist = 100},
+    ["AirDrop"]     = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
+    ["SupplyCrate"] = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
+    ["Supply"]      = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
+    ["WeaponCrate"] = {text = "⚔️ Ящик с оружием", color = Color3.fromRGB(255, 255, 0), isStatic = false, maxDist = 100},
+    ["LootCrate"]   = {text = "📦 Лутбокс", color = Color3.fromRGB(255, 220, 50), isStatic = false, maxDist = 100},
+    ["Box"]         = {text = "📦 Коробка", color = Color3.fromRGB(200, 200, 50), isStatic = false, maxDist = 100},
+    ["Crate"]       = {text = "📦 Коробка", color = Color3.fromRGB(200, 200, 50), isStatic = false, maxDist = 100},
     
     -- Мусор (80 метров)
-    Scrap       = {text = "♻️ Мусор (Скрап)", color = Color3.fromRGB(30, 100, 255), isStatic = false, maxDist = 80}
+    ["Scrap"]       = {text = "♻️ Мусор (Скрап)", color = Color3.fromRGB(30, 100, 255), isStatic = false, maxDist = 80}
 }
 
--- Поиск по хэшу (ищет часть имени в ключах конфигурации за O(1) без циклов)
-local function GetLootConfig(name)
-    for key, config in pairs(LOOT_CONFIG) do
-        if stringFind(name, key) then
-            return config
+-- Игнорируемые системные имена деталей для моментального отсева мусора геометрии
+local IGNORED_NAMES = {
+    ["part"] = true, ["meshpart"] = true, ["wedgepart"] = true, ["cornerwedgepart"] = true,
+    ["trusspart"] = true, ["spawnlocation"] = true, ["basepart"] = true
+}
+
+-- Ультра-быстрый поиск конфига без единого цикла
+local function GetLootConfig(objName)
+    -- Прямое попадание по хэш-таблице (0 лагов)
+    local direct = LOOT_CONFIG[objName]
+    if direct then return direct end
+    
+    -- Резервный поиск только для сложных динамических названий (вроده Stationary_SupplyCrate)
+    local nameLower = objName:lower()
+    if stringFind(nameLower, "supply") or stringFind(nameLower, "crate") or stringFind(nameLower, "safe") or stringFind(nameLower, "box") then
+        for key, config in pairs(LOOT_CONFIG) do
+            if stringFind(objName, key) then
+                return config
+            end
         end
     end
     return nil
@@ -104,7 +118,10 @@ end
 
 -- Моментальный чекер без тяжелых циклов
 local function TargetCheck(obj)
-    local config = GetLootConfig(obj.Name)
+    local name = obj.Name
+    if IGNORED_NAMES[name:lower()] then return end -- Защита от спама дефолтными деталями
+    
+    local config = GetLootConfig(name)
     if config then
         CreateVisuals(obj, config)
     end
@@ -121,7 +138,7 @@ end)
 task.spawn(function()
     local allCurrent = Workspace:GetDescendants()
     for i = 1, #allCurrent do
-        if i % 300 == 0 then task.wait() end -- Оптимальная разгрузка CPU
+        if i % 400 == 0 then task.wait() end -- Разгрузка CPU
         local obj = allCurrent[i]
         if obj and obj.Parent and (obj:IsA("Model") or obj:IsA("MeshPart") or obj:IsA("BasePart")) then
             TargetCheck(obj)
