@@ -3,15 +3,13 @@ local Players = game:GetService("Players")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Локализация методов для максимальной скорости выполнения
+-- Локализация для максимального быстродействия
 local stringFind = string.find
 local mathFloor = math.floor
 local taskWait = task.wait
 
--- Кэш объектов
 local lootCache = {}
 
--- Таблица настроек лута
 local LOOT_CONFIG = {
     Register = {text = "💰 Касса", color = Color3.fromRGB(0, 255, 100), isStatic = true},
     SmallSafe = {text = "🔓 Сейф (М)", color = Color3.fromRGB(0, 180, 255), isStatic = true},
@@ -24,7 +22,6 @@ local LOOT_CONFIG = {
     Scrap = {text = "♻️ Мусор (Скрап)", color = Color3.fromRGB(30, 100, 255), isStatic = false}
 }
 
--- Создание и обновление элементов
 local function ApplyCleanESP(object, config)
     local data = lootCache[object]
     
@@ -40,17 +37,17 @@ local function ApplyCleanESP(object, config)
         local billboard = Instance.new("BillboardGui")
         billboard.Name = "__SuperLootESP"
         billboard.AlwaysOnTop = true
-        billboard.Size = UDim2.new(0, 140, 0, 30) -- Уменьшили контейнер под мелкий шрифт
-        billboard.StudsOffset = Vector3.new(0, 0, -0.1) -- Небольшое смещение внутрь, чтобы текст сидел прямо на объекте
+        billboard.Size = UDim2.new(0, 140, 0, 30)
+        billboard.StudsOffset = Vector3.new(0, 0, -0.1)
         billboard.Adornee = object
 
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(1, 0, 1, 0)
         label.BackgroundTransparency = 1
-        label.Font = Enum.Font.RobotoMono -- ИЗМЕНЕНО: Новый компактный моноширинный шрифт
-        label.TextSize = 11 -- ИЗМЕНЕНО: Размер уменьшен с 14 до 11
+        label.Font = Enum.Font.RobotoMono
+        label.TextSize = 11
         label.TextColor3 = color
-        label.TextStrokeTransparency = 0.1 -- Чуть мягче обводка, чтобы мелкий шрифт оставался читаемым
+        label.TextStrokeTransparency = 0.1
         label.TextStrokeColor3 = Color3.new(0, 0, 0)
         label.Parent = billboard
         billboard.Parent = object
@@ -64,7 +61,6 @@ local function ApplyCleanESP(object, config)
         highlight.Adornee = object
         highlight.Parent = object
 
-        -- Сохраняем цвет в кэш
         data = {
             label = label, 
             highlight = highlight, 
@@ -75,7 +71,6 @@ local function ApplyCleanESP(object, config)
         }
         lootCache[object] = data
     else
-        -- Обновляем данные, только если состояние изменилось
         if data.isBroken ~= isBroken then
             data.isBroken = isBroken
             data.color = color
@@ -85,29 +80,57 @@ local function ApplyCleanESP(object, config)
     end
 end
 
--- Оптимизированный поиск (не рекурсивный) по всему Workspace
-local function FastScan()
-    local allObjects = Workspace:GetDescendants()
-    for i = 1, #allObjects do
-        local obj = allObjects[i]
+-- Умное точечное сканирование (проверяет только нужные папки, игнорируя мусорные текстуры карты)
+local function SmartScan(folder)
+    if not folder then return end
+    
+    local children = folder:GetChildren()
+    for i = 1, #children do
+        local obj = children[i]
         if obj:IsA("Model") then
             local objName = obj.Name
+            local matched = false
+            
             for nameKey, config in pairs(LOOT_CONFIG) do
                 if stringFind(objName, nameKey) then
                     ApplyCleanESP(obj, config)
+                    matched = true
                     break
                 end
+            end
+            
+            -- Если это обычная модель (не лут), но она лежит в Map — заходим глубже (для сейфов в BredMakurz)
+            if not matched and folder.Name == "Map" or folder.Name == "BredMakurz" then
+                SmartScan(obj)
             end
         end
     end
 end
 
--- Поток сканирования карты (раз в 2 секунды)
+-- Оптимизированный поток сканирования
 task.spawn(function()
     while true do
-        FastScan()
+        -- 1. Сканируем статические сейфы в папке Map
+        local mapFolder = Workspace:FindFirstChild("Map")
+        if mapFolder then
+            SmartScan(mapFolder)
+        end
+        
+        -- 2. Сканируем корень Workspace (только верхний уровень для динамических Аирдропов и Скрапа)
+        local wsChildren = Workspace:GetChildren()
+        for i = 1, #wsChildren do
+            local obj = wsChildren[i]
+            if obj:IsA("Model") then
+                for nameKey, config in pairs(LOOT_CONFIG) do
+                    if stringFind(obj.Name, nameKey) then
+                        ApplyCleanESP(obj, config)
+                        break
+                    end
+                end
+            end
+        end
 
-        -- Очистка кэша от удаленных предметов
+        -- Очистка кэша
         for obj, _ in pairs(lootCache) do
             if not obj or not obj.Parent then
                 lootCache[obj] = nil
@@ -118,7 +141,7 @@ task.spawn(function()
     end
 end)
 
--- Быстрый поток для динамического обновления дистанции
+-- Дистанция
 task.spawn(function()
     while true do
         local character = LocalPlayer.Character
