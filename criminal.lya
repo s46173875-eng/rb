@@ -3,170 +3,136 @@ local Players = game:GetService("Players")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Локализация для максимального быстродействия
+-- Локализация для максимального FPS
 local stringFind = string.find
 local mathFloor = math.floor
 local taskWait = task.wait
 
 local lootCache = {}
 
+-- Настройки дистанции и названий
 local LOOT_CONFIG = {
-    Register = {text = "💰 Касса", color = Color3.fromRGB(0, 255, 100), isStatic = true},
-    SmallSafe = {text = "🔓 Сейф (М)", color = Color3.fromRGB(0, 180, 255), isStatic = true},
-    BigSafe = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true},
-    AirDrop = {text = "📦 АИРДРОП", color = Color3.fromRGB(255, 120, 0), isStatic = false},
-    SupplyCrate = {text = "📦 АИРДРОП", color = Color3.fromRGB(255, 120, 0), isStatic = false},
-    WeaponCrate = {text = "⚔️ Ящик с оружием", color = Color3.fromRGB(255, 255, 0), isStatic = false},
-    LootCrate = {text = "📦 Лутбокс", color = Color3.fromRGB(255, 220, 50), isStatic = false},
-    Box = {text = "📦 Коробка", color = Color3.fromRGB(200, 200, 50), isStatic = false},
-    Scrap = {text = "♻️ Мусор (Скрап)", color = Color3.fromRGB(30, 100, 255), isStatic = false}
+    -- Сейфы и кассы (Видимость: 500 метров)
+    Register = {text = "💰 Касса", color = Color3.fromRGB(0, 255, 100), isStatic = true, maxDist = 500},
+    SmallSafe = {text = "🔓 Сейф (М)", color = Color3.fromRGB(0, 180, 255), isStatic = true, maxDist = 500},
+    BigSafe = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    
+    -- Динамический лут (Видимость изменена на 100 метров)
+    AirDrop = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
+    SupplyCrate = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
+    WeaponCrate = {text = "⚔️ Ящик с оружием", color = Color3.fromRGB(255, 255, 0), isStatic = false, maxDist = 100},
+    LootCrate = {text = "📦 Лутбокс", color = Color3.fromRGB(255, 220, 50), isStatic = false, maxDist = 100},
+    Box = {text = "📦 Коробка", color = Color3.fromRGB(200, 200, 50), isStatic = false, maxDist = 100},
+    
+    -- Мусор (Видимость: 80 метров)
+    Scrap = {text = "♻️ Мусор (Скрап)", color = Color3.fromRGB(30, 100, 255), isStatic = false, maxDist = 80}
 }
 
-local function ApplyCleanESP(object, config)
-    local data = lootCache[object]
+-- Функция создания ESP
+local function CheckAndApply(obj)
+    if not obj:IsA("Model") or lootCache[obj] then return end
     
-    local isBroken = false
-    if config.isStatic then
-        local values = object:FindFirstChild("Values")
-        isBroken = values and values:FindFirstChild("Broken") and values.Broken.Value == true
-    end
-    
-    local color = isBroken and Color3.fromRGB(130, 35, 35) or config.color
+    local objName = obj.Name
+    for nameKey, config in pairs(LOOT_CONFIG) do
+        if stringFind(objName, nameKey) then
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "__SuperLootESP"
+            billboard.AlwaysOnTop = true
+            billboard.Size = UDim2.new(0, 140, 0, 30)
+            billboard.StudsOffset = Vector3.new(0, 0, -0.1)
+            billboard.Adornee = obj
 
-    if not data then
-        local billboard = Instance.new("BillboardGui")
-        billboard.Name = "__SuperLootESP"
-        billboard.AlwaysOnTop = true
-        billboard.Size = UDim2.new(0, 140, 0, 30)
-        billboard.StudsOffset = Vector3.new(0, 0, -0.1)
-        billboard.Adornee = object
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.Font = Enum.Font.RobotoMono
+            label.TextSize = 11
+            label.TextColor3 = config.color
+            label.TextStrokeTransparency = 0.1
+            label.TextStrokeColor3 = Color3.new(0, 0, 0)
+            label.Parent = billboard
+            billboard.Parent = obj
 
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1, 0, 1, 0)
-        label.BackgroundTransparency = 1
-        label.Font = Enum.Font.RobotoMono
-        label.TextSize = 11
-        label.TextColor3 = color
-        label.TextStrokeTransparency = 0.1
-        label.TextStrokeColor3 = Color3.new(0, 0, 0)
-        label.Parent = billboard
-        billboard.Parent = object
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "__LootChams"
+            highlight.FillColor = config.color
+            highlight.FillTransparency = 0.4
+            highlight.OutlineColor = Color3.new(1, 1, 1)
+            highlight.OutlineTransparency = 0.2
+            highlight.Adornee = obj
+            highlight.Parent = obj
 
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "__LootChams"
-        highlight.FillColor = color
-        highlight.FillTransparency = 0.4
-        highlight.OutlineColor = Color3.new(1, 1, 1)
-        highlight.OutlineTransparency = 0.2
-        highlight.Adornee = object
-        highlight.Parent = object
-
-        data = {
-            label = label, 
-            highlight = highlight, 
-            baseText = config.text, 
-            isStatic = config.isStatic, 
-            isBroken = isBroken,
-            color = color
-        }
-        lootCache[object] = data
-    else
-        if data.isBroken ~= isBroken then
-            data.isBroken = isBroken
-            data.color = color
-            data.highlight.FillColor = color
-            data.label.TextColor3 = color
+            lootCache[obj] = {
+                label = label, 
+                highlight = highlight, 
+                baseText = config.text, 
+                isStatic = config.isStatic, 
+                maxDist = config.maxDist,
+                defaultColor = config.color,
+                isBroken = false
+            }
+            break
         end
     end
 end
 
--- Умное точечное сканирование (проверяет только нужные папки, игнорируя мусорные текстуры карты)
-local function SmartScan(folder)
-    if not folder then return end
-    
-    local children = folder:GetChildren()
-    for i = 1, #children do
-        local obj = children[i]
-        if obj:IsA("Model") then
-            local objName = obj.Name
-            local matched = false
-            
-            for nameKey, config in pairs(LOOT_CONFIG) do
-                if stringFind(objName, nameKey) then
-                    ApplyCleanESP(obj, config)
-                    matched = true
-                    break
-                end
-            end
-            
-            -- Если это обычная модель (не лут), но она лежит в Map — заходим глубже (для сейфов в BredMakurz)
-            if not matched and folder.Name == "Map" or folder.Name == "BredMakurz" then
-                SmartScan(obj)
-            end
-        end
-    end
+-- Событийный запуск: моментально лочит объекты без циклов и лагов
+Workspace.DescendantAdded:Connect(CheckAndApply)
+
+-- Первичный быстрый сбор уже существующих моделей при старте
+local currentDescendants = Workspace:GetDescendants()
+for i = 1, #currentDescendants do
+    CheckAndApply(currentDescendants[i])
 end
 
--- Оптимизированный поток сканирования
-task.spawn(function()
-    while true do
-        -- 1. Сканируем статические сейфы в папке Map
-        local mapFolder = Workspace:FindFirstChild("Map")
-        if mapFolder then
-            SmartScan(mapFolder)
-        end
-        
-        -- 2. Сканируем корень Workspace (только верхний уровень для динамических Аирдропов и Скрапа)
-        local wsChildren = Workspace:GetChildren()
-        for i = 1, #wsChildren do
-            local obj = wsChildren[i]
-            if obj:IsA("Model") then
-                for nameKey, config in pairs(LOOT_CONFIG) do
-                    if stringFind(obj.Name, nameKey) then
-                        ApplyCleanESP(obj, config)
-                        break
-                    end
-                end
-            end
-        end
-
-        -- Очистка кэша
-        for obj, _ in pairs(lootCache) do
-            if not obj or not obj.Parent then
-                lootCache[obj] = nil
-            end
-        end
-
-        taskWait(2.0)
-    end
-end)
-
--- Дистанция
+-- Быстрый поток для дистанций, лимитов видимости и состояний взлома
 task.spawn(function()
     while true do
         local character = LocalPlayer.Character
         local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 
-        if rootPart then
-            local myPos = rootPart.Position
-            for obj, data in pairs(lootCache) do
-                if obj and obj.Parent and data.label then
-                    local targetPart = obj.PrimaryPart or obj:FindFirstChildOfClass("BasePart")
-                    local distanceText = ""
+        for obj, data in pairs(lootCache) do
+            if not obj or not obj.Parent then
+                lootCache[obj] = nil
+            else
+                local targetPart = obj.PrimaryPart or obj:FindFirstChildOfClass("BasePart")
+                
+                if rootPart and targetPart then
+                    local dist = mathFloor((rootPart.Position - targetPart.Position).Magnitude)
                     
-                    if targetPart then
-                        local dist = mathFloor((myPos - targetPart.Position).Magnitude)
-                        distanceText = " [" .. dist .. "m]"
+                    -- Проверяем лимит дистанции
+                    if dist <= data.maxDist then
+                        -- Динамическая проверка взлома сейфа
+                        local isBroken = false
+                        if data.isStatic then
+                            local values = obj:FindFirstChild("Values")
+                            isBroken = values and values:FindFirstChild("Broken") and values.Broken.Value == true
+                        end
+                        
+                        -- Обновляем состояние цвета
+                        local activeColor = isBroken and Color3.fromRGB(130, 35, 35) or data.defaultColor
+                        data.label.TextColor3 = activeColor
+                        data.highlight.FillColor = activeColor
+                        
+                        -- Выводим текст
+                        local status = data.isStatic and (isBroken and " [ВЗЛОМАН]" or "") or ""
+                        data.label.Text = data.baseText .. status .. " [" .. dist .. "m]"
+                        
+                        -- Делаем видимыми, если в радиусе
+                        data.label.Visible = true
+                        data.highlight.Enabled = true
+                    else
+                        -- Полностью скрываем и отключаем рендер, если объект слишком далеко
+                        data.label.Visible = false
+                        data.highlight.Enabled = false
                     end
-
-                    local status = data.isStatic and (data.isBroken and " [ВЗЛОМАН]" or "") or ""
-                    
-                    data.label.TextColor3 = data.color
-                    data.label.Text = data.baseText .. status .. distanceText
+                else
+                    data.label.Visible = false
+                    data.highlight.Enabled = false
                 end
             end
         end
 
-        taskWait(0.1)
+        taskWait(0.1) -- 10 обновлений в секунду для плавного счетчика метров
     end
 end)
