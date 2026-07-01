@@ -4,72 +4,63 @@ local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Кэширование методов для максимальной производительности
 local stringFind = string.find
 local mathFloor = math.floor
 local taskWait = task.wait
 
 local lootCache = {}
 
--- Оптимизированная структура настроек лута
+local StorageFolder = CoreGui:FindFirstChild("__CrimLootStorage")
+if StorageFolder then StorageFolder:Destroy() end
+StorageFolder = Instance.new("Folder")
+StorageFolder.Name = "__CrimLootStorage"
+StorageFolder.Parent = CoreGui
+
 local LOOT_CONFIG = {
-    -- Сейфы и кассы (500 метров)
-    ["Register"]    = {text = "💰 Касса", color = Color3.fromRGB(0, 255, 100), isStatic = true, maxDist = 500},
-    ["SmallSafe"]   = {text = "🔓 Сейф (М)", color = Color3.fromRGB(0, 180, 255), isStatic = true, maxDist = 500},
-    ["BigSafe"]     = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
-    ["LargeSafe"]   = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
-    ["SuperSafe"]   = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
-    ["ATM"]         = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
-    ["Safe"]        = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
-    
-    -- Динамические Боксы (100 метров)
-    ["AirDrop"]     = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
-    ["SupplyCrate"] = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
-    ["Supply"]      = {text = "📦 БОКС", color = Color3.fromRGB(255, 120, 0), isStatic = false, maxDist = 100},
-    ["WeaponCrate"] = {text = "⚔️ Ящик с оружием", color = Color3.fromRGB(255, 255, 0), isStatic = false, maxDist = 100},
-    ["LootCrate"]   = {text = "📦 Лутбокс", color = Color3.fromRGB(255, 220, 50), isStatic = false, maxDist = 100},
-    ["Box"]         = {text = "📦 Коробка", color = Color3.fromRGB(200, 200, 50), isStatic = false, maxDist = 100},
-    ["Crate"]       = {text = "📦 Коробка", color = Color3.fromRGB(200, 200, 50), isStatic = false, maxDist = 100},
-    
-    -- Мусор (80 метров)
-    ["Scrap"]       = {text = "♻️ Мусор (Скрап)", color = Color3.fromRGB(30, 100, 255), isStatic = false, maxDist = 80}
+    ["register"]    = {text = "💰 Касса", color = Color3.fromRGB(0, 255, 100), isStatic = true, maxDist = 500},
+    ["smallsafe"]   = {text = "🔓 Сейф (М)", color = Color3.fromRGB(0, 180, 255), isStatic = true, maxDist = 500},
+    ["bigsafe"]     = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    ["largesafe"]   = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    ["supersafe"]   = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    ["atm"]         = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    ["safe"]        = {text = "💎 СЕЙФ (Б)", color = Color3.fromRGB(255, 0, 120), isStatic = true, maxDist = 500},
+    ["dealer"]      = {text = "👤 ТОРГОВЕЦ", color = Color3.fromRGB(255, 255, 255), isStatic = false, maxDist = 300},
+    ["scrap"]       = {text = "♻️ Мусор (Скрап)", color = Color3.fromRGB(30, 100, 255), isStatic = false, maxDist = 80}
 }
 
--- Игнорируемые системные имена деталей для моментального отсева мусора геометрии
 local IGNORED_NAMES = {
     ["part"] = true, ["meshpart"] = true, ["wedgepart"] = true, ["cornerwedgepart"] = true,
-    ["trusspart"] = true, ["spawnlocation"] = true, ["basepart"] = true
+    ["trusspart"] = true, ["spawnlocation"] = true, ["basepart"] = true, ["hitbox"] = true
 }
 
--- Ультра-быстрый поиск конфига без единого цикла
-local function GetLootConfig(objName)
-    -- Прямое попадание по хэш-таблице (0 лагов)
-    local direct = LOOT_CONFIG[objName]
+local ALLOWED_EXCEPTIONS = {
+    ["register"] = true, ["safe"] = true, ["atm"] = true, ["smallsafe"] = true, ["bigsafe"] = true, ["largesafe"] = true, ["supersafe"] = true, ["dealer"] = true
+}
+
+local function GetLootConfig(nameLower)
+    local direct = LOOT_CONFIG[nameLower]
     if direct then return direct end
     
-    -- Резервный поиск только для сложных динамических названий (вроده Stationary_SupplyCrate)
-    local nameLower = objName:lower()
-    if stringFind(nameLower, "supply") or stringFind(nameLower, "crate") or stringFind(nameLower, "safe") or stringFind(nameLower, "box") then
-        for key, config in pairs(LOOT_CONFIG) do
-            if stringFind(objName, key) then
-                return config
-            end
-        end
-    end
+    if stringFind(nameLower, "register") then return LOOT_CONFIG["register"] end
+    if stringFind(nameLower, "safe") then return LOOT_CONFIG["safe"] end
+    if stringFind(nameLower, "atm") then return LOOT_CONFIG["atm"] end
+    if stringFind(nameLower, "dealer") then return LOOT_CONFIG["dealer"] end
+    if stringFind(nameLower, "scrap") then return LOOT_CONFIG["scrap"] end
+    
     return nil
 end
 
--- Функция создания визуальных элементов
 local function CreateVisuals(obj, config)
     if lootCache[obj] then return end
 
     local nameLower = obj.Name:lower()
+    if stringFind(nameLower, "zone") or stringFind(nameLower, "sky") then return end
     
-    -- Моментальный отсев обломков открытых кейсов и зон
-    if stringFind(nameLower, "zone") or stringFind(nameLower, "sky") or stringFind(nameLower, "hitbox") or
-       stringFind(nameLower, "open") or stringFind(nameLower, "broken") or stringFind(nameLower, "piece") or 
-       stringFind(nameLower, "part") or stringFind(nameLower, "lid") or stringFind(nameLower, "shattered") then 
-        return 
+    if not ALLOWED_EXCEPTIONS[nameLower] and not stringFind(nameLower, "register") and not stringFind(nameLower, "safe") and not stringFind(nameLower, "dealer") then
+        if stringFind(nameLower, "open") or stringFind(nameLower, "broken") or stringFind(nameLower, "piece") or 
+           stringFind(nameLower, "part") or stringFind(nameLower, "lid") or stringFind(nameLower, "shattered") then 
+            return 
+        end
     end
 
     local rootPart = obj:IsA("BasePart") and obj or (obj.PrimaryPart or obj:FindFirstChildOfClass("BasePart"))
@@ -81,7 +72,7 @@ local function CreateVisuals(obj, config)
     billboard.Size = UDim2.new(0, 140, 0, 30)
     billboard.StudsOffset = Vector3.new(0, 0, -0.1)
     billboard.Adornee = rootPart
-    billboard.Parent = CoreGui
+    billboard.Parent = StorageFolder
 
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 1, 0)
@@ -100,7 +91,7 @@ local function CreateVisuals(obj, config)
     highlight.OutlineColor = Color3.new(1, 1, 1)
     highlight.OutlineTransparency = 0.2
     highlight.Adornee = obj
-    highlight.Parent = CoreGui
+    highlight.Parent = StorageFolder
 
     lootCache[obj] = {
         label = label, 
@@ -116,29 +107,30 @@ local function CreateVisuals(obj, config)
     }
 end
 
--- Моментальный чекер без тяжелых циклов
 local function TargetCheck(obj)
-    local name = obj.Name
-    if IGNORED_NAMES[name:lower()] then return end -- Защита от спама дефолтными деталями
+    local nameLower = obj.Name:lower()
     
-    local config = GetLootConfig(name)
+    local config = GetLootConfig(nameLower)
     if config then
         CreateVisuals(obj, config)
+        return
+    end
+
+    if IGNORED_NAMES[nameLower] then 
+        return 
     end
 end
 
--- 1. СЛУШАТЕЛЬ КАРТЫ С ЖЕСТКИМ ПЕРВИЧНЫМ ФИЛЬТРОМ КЛАССОВ
 Workspace.DescendantAdded:Connect(function(desc)
     if desc:IsA("Model") or desc:IsA("MeshPart") or desc:IsA("BasePart") then
         TargetCheck(desc)
     end
 end)
 
--- 2. БЕЗОПАСНЫЙ СБОР ПРИ СТАРТЕ (Разбит по кадрам для защиты от фриза)
 task.spawn(function()
     local allCurrent = Workspace:GetDescendants()
     for i = 1, #allCurrent do
-        if i % 400 == 0 then task.wait() end -- Разгрузка CPU
+        if i % 150 == 0 then task.wait() end 
         local obj = allCurrent[i]
         if obj and obj.Parent and (obj:IsA("Model") or obj:IsA("MeshPart") or obj:IsA("BasePart")) then
             TargetCheck(obj)
@@ -147,7 +139,6 @@ task.spawn(function()
     allCurrent = nil
 end)
 
--- 3. АВТОНОМНЫЙ ПЛАВНЫЙ ПОТОК ОЧИСТКИ ПАМЯТИ (Раз в 5 секунд)
 task.spawn(function()
     while true do
         for obj, data in pairs(lootCache) do
@@ -161,7 +152,6 @@ task.spawn(function()
     end
 end)
 
--- 4. ЕДИНЫЙ ПОТОК ОБНОВЛЕНИЯ ДИСТАНЦИИ И ВЗЛОМА (Оптимизация обновлений UI)
 task.spawn(function()
     while true do
         local char = LocalPlayer.Character
@@ -180,7 +170,6 @@ task.spawn(function()
                             isBroken = values and values:FindFirstChild("Broken") and values.Broken.Value == true
                         end
                         
-                        -- Обновляем свойства UI и Chams ТОЛЬКО при реальном изменении (экономит 90% FPS)
                         if dist ~= data.lastDist or isBroken ~= data.lastBroken then
                             data.lastDist = dist
                             data.lastBroken = isBroken
