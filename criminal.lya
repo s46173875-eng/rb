@@ -30,11 +30,9 @@ local LOOT_CONFIG = {
 
 local IGNORED_NAMES = {
     ["part"] = true, ["meshpart"] = true, ["wedgepart"] = true, ["cornerwedgepart"] = true,
-    ["trusspart"] = true, ["spawnlocation"] = true, ["basepart"] = true, ["hitbox"] = true
-}
-
-local ALLOWED_EXCEPTIONS = {
-    ["register"] = true, ["safe"] = true, ["atm"] = true, ["smallsafe"] = true, ["bigsafe"] = true, ["largesafe"] = true, ["supersafe"] = true, ["dealer"] = true
+    ["trusspart"] = true, ["spawnlocation"] = true, ["basepart"] = true, ["hitbox"] = true,
+    ["floor"] = true, ["wall"] = true, ["ceiling"] = true, ["ground"] = true, ["safefloor"] = true,
+    ["safezone"] = true, ["safewall"] = true, ["safe_zone"] = true, ["safearea"] = true
 }
 
 local function GetLootConfig(nameLower)
@@ -42,8 +40,18 @@ local function GetLootConfig(nameLower)
     if direct then return direct end
     
     if stringFind(nameLower, "register") then return LOOT_CONFIG["register"] end
-    if stringFind(nameLower, "safe") then return LOOT_CONFIG["safe"] end
     if stringFind(nameLower, "atm") then return LOOT_CONFIG["atm"] end
+
+    if stringFind(nameLower, "safe") then
+        if not stringFind(nameLower, "atm") then
+            if stringFind(nameLower, "zone") or stringFind(nameLower, "floor") or stringFind(nameLower, "wall") or 
+               stringFind(nameLower, "area") or stringFind(nameLower, "part") or stringFind(nameLower, "mesh") then
+                return nil
+            end
+        end
+        return LOOT_CONFIG["safe"]
+    end
+    
     if stringFind(nameLower, "dealer") then return LOOT_CONFIG["dealer"] end
     if stringFind(nameLower, "scrap") then return LOOT_CONFIG["scrap"] end
     
@@ -54,11 +62,9 @@ local function CreateVisuals(obj, config)
     if lootCache[obj] then return end
 
     local nameLower = obj.Name:lower()
-    if stringFind(nameLower, "zone") or stringFind(nameLower, "sky") then return end
     
-    if not ALLOWED_EXCEPTIONS[nameLower] and not stringFind(nameLower, "register") and not stringFind(nameLower, "safe") and not stringFind(nameLower, "dealer") then
-        if stringFind(nameLower, "open") or stringFind(nameLower, "broken") or stringFind(nameLower, "piece") or 
-           stringFind(nameLower, "part") or stringFind(nameLower, "lid") or stringFind(nameLower, "shattered") then 
+    if not stringFind(nameLower, "atm") and not stringFind(nameLower, "register") and not stringFind(nameLower, "safe") then
+        if stringFind(nameLower, "zone") or stringFind(nameLower, "sky") or stringFind(nameLower, "floor") or stringFind(nameLower, "wall") then 
             return 
         end
     end
@@ -113,6 +119,10 @@ local function TargetCheck(obj)
     local config = GetLootConfig(nameLower)
     if config then
         CreateVisuals(obj, config)
+        return
+    end
+
+    if stringFind(nameLower, "register") or stringFind(nameLower, "atm") or stringFind(nameLower, "safe") then
         return
     end
 
