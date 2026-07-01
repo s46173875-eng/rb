@@ -1,0 +1,88 @@
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+-- Функция создания красивого текста с вашей палитрой цветов
+local function CreateLootESP(object, text, color)
+    if object:FindFirstChild("__LootESP") then
+        object.__LootESP:Destroy()
+    end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "__LootESP"
+    billboard.AlwaysOnTop = true
+    billboard.Size = UDim2.new(0, 130, 0, 40)
+    billboard.StudsOffset = Vector3.new(0, 3, 0) -- Высота текста над предметом
+    billboard.Adornee = object
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 14
+    label.TextColor3 = color
+    label.TextStrokeTransparency = 0
+    
+    -- Для тускло-красного цвета уменьшаем обводку, чтобы надпись не выделялась сквозь стены
+    if color == Color3.fromRGB(120, 30, 30) then
+        label.TextStrokeTransparency = 0.6
+        label.TextStrokeColor3 = Color3.new(0, 0, 0)
+    else
+        label.TextStrokeTransparency = 0
+        label.TextStrokeColor3 = Color3.new(0, 0, 0)
+    end
+    label.Text = text
+    label.Parent = billboard
+
+    billboard.Parent = object
+end
+
+-- Цикл сканирования карты Criminality
+RunService.Heartbeat:Connect(function()
+    -- 1. Проверяем Сейфы и Кассы в папке BredMakurz
+    local bredMakurz = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("BredMakurz")
+    if bredMakurz then
+        for _, obj in pairs(bredMakurz:GetChildren()) do
+            if obj:IsA("Model") then
+                local values = obj:FindFirstChild("Values")
+                local isBroken = values and values:FindFirstChild("Broken") and values.Broken.Value == true
+                
+                -- Подсветка Касс
+                if string.find(obj.Name, "Register") then
+                    local status = isBroken and " [ВЗЛОМАН]" or " [ГОТОВ]"
+                    local color = isBroken and Color3.fromRGB(120, 30, 30) or Color3.fromRGB(0, 255, 0)
+                    CreateLootESP(obj, "Касса" .. status, color)
+                    
+                -- Подсветка Маленьких сейфов
+                elseif string.find(obj.Name, "SmallSafe") then
+                    local status = isBroken and " [ВЗЛОМАН]" or " [ГОТОВ]"
+                    local color = isBroken and Color3.fromRGB(120, 30, 30) or Color3.fromRGB(0, 255, 0)
+                    CreateLootESP(obj, "Сейф (М)" .. status, color)
+                    
+                -- Подсветка Больших сейфов
+                elseif string.find(obj.Name, "BigSafe") then
+                    local status = isBroken and " [ВЗЛОМАН]" or " [ГОТОВ]"
+                    local color = isBroken and Color3.fromRGB(120, 30, 30) or Color3.fromRGB(0, 255, 0)
+                    CreateLootESP(obj, "Сейф (Б)" .. status, color)
+                end
+            end
+        end
+    end
+
+    -- 2. Проверяем динамические Аирдропы, Боксы и Мусор по всему Workspace
+    for _, obj in pairs(Workspace:GetChildren()) do
+        if obj:IsA("Model") then
+            -- ✈️ АИРДРОП: Насыщенный оранжевый цвет
+            if string.find(obj.Name, "AirDrop") or string.find(obj.Name, "SupplyCrate") then
+                CreateLootESP(obj, "📦 АИРДРОП", Color3.fromRGB(255, 120, 0))
+            
+            -- 📦 БОКСЫ (Режим STANDARD): Яркий жёлтый цвет
+            elseif string.find(obj.Name, "WeaponCrate") or string.find(obj.Name, "LootCrate") or string.find(obj.Name, "Box") then
+                CreateLootESP(obj, "📦 Ящик с оружием", Color3.fromRGB(255, 255, 0))
+            
+            -- ♻️ КУЧИ МУСОРА (Скрап): Тёмно-синий цвет
+            elseif string.find(obj.Name, "Scrap") then
+                CreateLootESP(obj, "♻️ Мусор (Скрап)", Color3.fromRGB(0, 50, 200))
+            end
+        end
+    end
+end)
