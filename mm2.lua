@@ -242,20 +242,35 @@ function UPDATE_ESP(CHARACTER, PLAYER_OBJ)
  end
 end
 
+local AIM_READY = false 
+
 game:GetService('UserInputService').InputBegan:Connect(function(i, g)
- if g then return end
- if i.KeyCode == Enum.KeyCode.R then
-  AIM_LOCK = true
-  TARGET = GetClosestPlayer()
- end
+    if g then return end
+    
+    -- Кнопка R: Включает или выключает готовность аима
+    if i.KeyCode == Enum.KeyCode.R then
+        AIM_READY = not AIM_READY
+        if not AIM_READY then
+            AIM_LOCK = false
+            TARGET = nil
+        end
+    end
+    
+    -- Правая кнопка мыши: Захватывает ближайшего игрока, если активирован режим R
+    if i.UserInputType == Enum.UserInputType.MouseButton2 and AIM_READY then
+        AIM_LOCK = true
+        TARGET = GetClosestPlayer()
+    end
 end)
 
 game:GetService('UserInputService').InputEnded:Connect(function(i, g)
- if g then return end
- if i.KeyCode == Enum.KeyCode.R then
-  AIM_LOCK = false
-  TARGET = nil
- end
+    if g then return end
+    
+    -- Отпускание правой кнопки мыши: Сбрасывает прицеливание
+    if i.UserInputType == Enum.UserInputType.MouseButton2 then
+        AIM_LOCK = false
+        TARGET = nil
+    end
 end)
 
 game:GetService('RunService').RenderStepped:Connect(function()
