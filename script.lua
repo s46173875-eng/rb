@@ -15,11 +15,11 @@ _G.ESP_BIND    = Enum.KeyCode.Comma -- Клавиша "," (Б в русской 
 _G.CHANGE_AIM  = Enum.KeyCode.M     -- Клавиша "M"
 _G.AIM_AT = 'Head' -- 'Head' или 'Torso'
 
--- === ОПТИМАЛЬНЫЕ НАСТРОЙКИ СКОРОСТИ И ФИКСАЦИИ ===
-local FOV_RADIUS = 85           -- Комфортный радиус круга FOV
+-- === ОБНОВЛЕННЫЕ НАСТРОЙКИ СКОРОСТИ И ФИКСАЦИИ ===
+local FOV_RADIUS = 100          -- Увеличенный радиус круга FOV по запросу
 local FOV_COLOR = Color3.fromRGB(255, 255, 255) 
-local BASE_SMOOTHNESS = 0.13    -- Увеличена начальная скорость (быстрая доводка)
-local TIGHT_LOCK_MULT = 1.5     -- Множитель сильного магнита у центра (крепкий лок)
+local BASE_SMOOTHNESS = 0.025   -- Крайне слабый и беспалевный магнит на расстоянии
+local TIGHT_LOCK_MULT = 40.0    -- Огромный множитель для фиксации намертво в центре
 
 -- Рисуем FOV круг через Drawing API
 local FOVCircle = Drawing.new("Circle")
@@ -110,7 +110,7 @@ GUI_AIM_AT.TextColor3 = Color3.new(1,1,1)
 GUI_AIM_AT.TextSize = 13
 GUI_AIM_AT.Font = Enum.Font.SourceSansBold
 
--- === ЛОГИКА ESP ===
+-- === ЛОГИКА ESP И ОБНОВЛЕНИЯ ДАННЫХ ===
 local function CREATE_ESP(character, player)
     if not character or not player then return end
     
@@ -131,10 +131,12 @@ local function CREATE_ESP(character, player)
         BillboardGui.Name = 'ESP_Tag'
         BillboardGui.Parent = head
         BillboardGui.AlwaysOnTop = true
-        BillboardGui.Size = UDim2.new(0, 100, 0, 20)
+        -- Увеличена высота контейнера для размещения двух строчек текста
+        BillboardGui.Size = UDim2.new(0, 150, 0, 40)
         BillboardGui.ExtentsOffset = Vector3.new(0, 2.5, 0)
         
         local TextLabel = Instance.new('TextLabel')
+        TextLabel.Name = 'ESP_Text'
         TextLabel.Parent = BillboardGui
         TextLabel.BackgroundTransparency = 1
         TextLabel.Size = UDim2.new(1, 0, 1, 0)
@@ -169,6 +171,20 @@ task.spawn(function()
                     if hum and hum.Health > 0 then
                         if _G.FREE_FOR_ALL or v.TeamColor ~= PLAYER.TeamColor then
                             CREATE_ESP(v.Character, v)
+                            
+                            -- Динамическое обновление текста (Метры над головой и ХП в %)
+                            local head = v.Character:FindFirstChild('Head')
+                            local tag = head and head:FindFirstChild('ESP_Tag')
+                            local textLabel = tag and tag:FindFirstChild('ESP_Text')
+                            
+                            if textLabel then
+                                -- Вычисляем расстояние в метрах (дистанция в Studs деленная на 3)
+                                local distance = math.floor((CC.CFrame.Position - head.Position).Magnitude / 3)
+                                -- Вычисляем здоровье в процентах
+                                local hpPercent = math.floor((hum.Health / hum.MaxHealth) * 100)
+                                
+                                textLabel.Text = string.format("%s | %dm\n[%d%%]", v.Name:upper(), distance, hpPercent)
+                            end
                         end
                     else
                         local hl = v.Character:FindFirstChild('ESP_Highlight')
@@ -177,7 +193,7 @@ task.spawn(function()
                 end
             end
         end
-        task.wait(0.4)
+        task.wait(0.1) -- Частота обновления уменьшена до 0.1 сек для плавного изменения метров
     end
 end)
 
@@ -227,12 +243,12 @@ RunService.RenderStepped:Connect(function()
                 
                 -- Адаптивный лок
                 local currentSmoothness = BASE_SMOOTHNESS
-                if distToCenter < (FOV_RADIUS * 0.4) then
+                -- Если цель находится в пределах 15 пикселей от центра прицела — фиксирует намертво
+                if distToCenter < 15 then
                     currentSmoothness = BASE_SMOOTHNESS * TIGHT_LOCK_MULT
                 end
-                
                 local targetCFrame = CFrame.new(CC.CFrame.Position, targetPart.Position)
-                CC.CFrame = CC.CFrame:Lerp(targetCFrame, currentSmoothness)
+                CC.CFrame = CC.CFrame:Lerp(targetCFrame, math.clamp(currentSmoothness, 0, 1))
                 GUI_TARGET.Text = 'AIMBOT : LOCK'
             end
         else
