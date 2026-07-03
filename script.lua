@@ -33,7 +33,9 @@ FOVCircle.Visible = true
 FOVCircle.Transparency = 0.5
 
 CC:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-    FOVCircle.Position = Vector2.new(CC.ViewportSize.X / 2, CC.ViewportSize.Y / 2)
+    if FOVCircle then
+        FOVCircle.Position = Vector2.new(CC.ViewportSize.X / 2, CC.ViewportSize.Y / 2)
+    end
 end)
 
 -- Безопасное получение целевой части тела (поддержка R6 и R15)
@@ -66,6 +68,9 @@ local function GetNearestPlayerToMouse()
 
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= PLAYER and v.Character then
+            -- Проверяем, не в друзьях ли игрок, чтобы не наводиться при поиске
+            if FriendsList[v.UserId] then continue end
+            
             local targetPart = GetAimPart(v.Character)
             if targetPart then
                 if _G.FREE_FOR_ALL or v.TeamColor ~= PLAYER.TeamColor then
@@ -111,11 +116,11 @@ GUI_AIM_AT.TextColor3 = Color3.new(1,1,1)
 GUI_AIM_AT.TextSize = 13
 GUI_AIM_AT.Font = Enum.Font.SourceSansBold
 
+
 -- === ЛОГИКА ESP И ОБНОВЛЕНИЯ ДАННЫХ ===
 local function CREATE_ESP(character, player)
     if not character or not player then return end
     
-    -- Определяем цвет (зеленый для друзей, красный для врагов)
     local isFriend = FriendsList[player.UserId]
     local mainColor = isFriend and Color3.fromRGB(60, 255, 60) or Color3.fromRGB(255, 60, 60)
     
@@ -138,7 +143,7 @@ local function CREATE_ESP(character, player)
         BillboardGui.Name = 'ESP_Tag'
         BillboardGui.Parent = head
         BillboardGui.AlwaysOnTop = true
-        BillboardGui.Size = UDim2.new(0, 120, 0, 30) -- Уменьшенный контейнер
+        BillboardGui.Size = UDim2.new(0, 120, 0, 30)
         BillboardGui.ExtentsOffset = Vector3.new(0, 2.0, 0)
         
         local NameLabel = Instance.new('TextLabel')
@@ -149,7 +154,7 @@ local function CREATE_ESP(character, player)
         NameLabel.Position = UDim2.new(0, 0, 0, 0)
         NameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
         NameLabel.TextStrokeTransparency = 0
-        NameLabel.TextSize = 9 -- УМЕНЬШЕННЫЙ ШРИФТ ДЛЯ НИКА
+        NameLabel.TextSize = 9
         NameLabel.Font = Enum.Font.SourceSansBold
         
         local HPLabel = Instance.new('TextLabel')
@@ -160,17 +165,18 @@ local function CREATE_ESP(character, player)
         HPLabel.Position = UDim2.new(0, 0, 0.5, 0)
         HPLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
         HPLabel.TextStrokeTransparency = 0
-        HPLabel.TextSize = 8 -- ОЧЕНЬ МАЛЕНЬКИЙ ШРИФТ ДЛЯ ХП
+        HPLabel.TextSize = 8
         HPLabel.Font = Enum.Font.SourceSansBold
     end
     
-    -- Динамически красим текст над головой
-    local tag = head and head:FindFirstChild('ESP_Tag')
-    if tag then
-        local nl = tag:FindFirstChild('ESP_Text')
-        local hl_text = tag:FindFirstChild('ESP_HP')
-        if nl then nl.TextColor3 = mainColor end
-        if hl_text then hl_text.TextColor3 = mainColor end
+    if head then
+        local tag = head:FindFirstChild('ESP_Tag')
+        if tag then
+            local nl = tag:FindFirstChild('ESP_Text')
+            local hl_text = tag:FindFirstChild('ESP_HP')
+            if nl then nl.TextColor3 = mainColor end
+            if hl_text then hl_text.TextColor3 = mainColor end
+        end
     end
 end
 
@@ -187,18 +193,24 @@ local function CLEAR_ESP()
     end
 end
 
+-- Удаление ESP при выходе игрока
+Players.PlayerRemoving:Connect(function(player)
+    FriendsList[player.UserId] = nil
+end)
+
 task.spawn(function()
     while true do
         if ESP_ENABLED and TRACK then
             for _, v in pairs(Players:GetPlayers()) do
-                if v ~= PLAYER and v.Character and v.Character:FindFirstChild('Head') then
+                if v ~= PLAYER and v.Character then
+                    local head = v.Character:FindFirstChild('Head')
                     local hum = v.Character:FindFirstChildOfClass("Humanoid")
-                    if hum and hum.Health > 0 then
+                    
+                    if head and hum and hum.Health > 0 then
                         if _G.FREE_FOR_ALL or v.TeamColor ~= PLAYER.TeamColor then
                             CREATE_ESP(v.Character, v)
                             
-                            local head = v.Character:FindFirstChild('Head')
-                            local tag = head and head:FindFirstChild('ESP_Tag')
+                            local tag = head:FindFirstChild('ESP_Tag')
                             local nameLabel = tag and tag:FindFirstChild('ESP_Text')
                             local hpLabel = tag and tag:FindFirstChild('ESP_HP')
                             
@@ -211,8 +223,11 @@ task.spawn(function()
                             end
                         end
                     else
+                        -- Очистка если игрок умер
                         local hl = v.Character:FindFirstChild('ESP_Highlight')
                         if hl then hl:Destroy() end
+                        local tag = head and head:FindFirstChild('ESP_Tag')
+                        if tag then tag:Destroy() end
                     end
                 end
             end
@@ -221,8 +236,7 @@ task.spawn(function()
     end
 end)
 
-    -- === ПРОВЕРКА ДЛЯ БЕЗОПАСНОСТИ ПК-ИНЖЕКТОРОВ ===
-local CURRENT_FOV = FOV_RADIUS or 90 -- Если локальный радиус потерялся, берем 90 по умолчанию
+local CURRENT_FOV = FOV_RADIUS or 90
 
 -- === ОТСЛЕЖИВАНИЕ ВВОДА ===
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -250,20 +264,39 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         end
     -- КЛАВИША ДОБАВЛЕНИЯ В ДРУЗЬЯ (Правый Ctrl)
     elseif input.KeyCode == Enum.KeyCode.RightControl then
-        local targetPlayer = GetNearestPlayerToMouse()
+        -- Перед поиском временно убираем фильтр друзей, чтобы можно было навестись на того, кого хотим удалить
+        local targetPlayer = nil
+        local shortestDistance = math.huge
+        
+        for _, v in pairs(Players:GetPlayers()) do
+            if v ~= PLAYER and v.Character then
+                local targetPart = GetAimPart(v.Character)
+                if targetPart then
+                    local inFov, distToCenter = IsInFOV(targetPart.Position)
+                    if inFov and distToCenter < shortestDistance then
+                        local hum = v.Character:FindFirstChildOfClass("Humanoid")
+                        if hum and hum.Health > 0 then
+                            shortestDistance = distToCenter
+                            targetPlayer = v
+                        end
+                    end
+                end
+            end
+        end
+
         if targetPlayer then
             if FriendsList[targetPlayer.UserId] then
-                FriendsList[targetPlayer.UserId] = nil -- Удаляем из друзей
+                FriendsList[targetPlayer.UserId] = nil
                 if targetPlayer.Character then
                     local hl = targetPlayer.Character:FindFirstChild('ESP_Highlight')
                     if hl then hl.FillColor = Color3.fromRGB(255, 60, 60) end
                 end
                 print("Удален из друзей: " .. targetPlayer.Name)
             else
-                FriendsList[targetPlayer.UserId] = true -- Добавляем в друзья
+                FriendsList[targetPlayer.UserId] = true
                 if targetPlayer.Character then
                     local hl = targetPlayer.Character:FindFirstChild('ESP_Highlight')
-                    if hl then hl:FillColor = Color3.fromRGB(60, 255, 60) end
+                    if hl then hl.FillColor = Color3.fromRGB(60, 255, 60) end
                 end
                 print("Добавлен в друзья: " .. targetPlayer.Name)
             end
@@ -277,9 +310,8 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- === ЦИКЛ РЕНДЕРА С ПЛАВНЫМ ДИНАМИЧЕСКИМ МАГНИТОМ И СИСТЕМОЙ ДРУЗЕЙ ===
+-- === ЦИКЛ РЕНДЕРА ===
 RunService.RenderStepped:Connect(function()
-    -- Безопасная проверка существования круга
     if FOVCircle then
         FOVCircle.Position = Vector2.new(CC.ViewportSize.X / 2, CC.ViewportSize.Y / 2)
     end
@@ -287,21 +319,14 @@ RunService.RenderStepped:Connect(function()
     if ENABLED then
         local TARGET = GetNearestPlayerToMouse()
         
-        -- ПРОВЕРКА: Если цель в списке друзей, аимбот полностью игнорирует её
-        if TARGET and FriendsList[TARGET.UserId] then
-            TARGET = nil
-        end
-        
         if TARGET and TARGET.Character then
             local targetPart = GetAimPart(TARGET.Character)
             if targetPart then
                 local _, distToCenter = IsInFOV(targetPart.Position)
                 
-                -- === НАСТРОЙКИ СКОРОСТИ И ПЛАВНОСТИ НАВЕДЕНИЯ ===
-                local startSmoothness = 0.04   -- Скорость доводки на краю круга
-                local maxSmoothness = 0.20     -- Максимальное залипание в центре
+                local startSmoothness = 0.04
+                local maxSmoothness = 0.20
                 
-                -- Используем защищенную переменную радиуса CURRENT_FOV вместо FOV_RADIUS
                 local proximity = 1 - math.clamp(distToCenter / CURRENT_FOV, 0, 1)
                 local currentSmoothness = startSmoothness + (maxSmoothness - startSmoothness) * (proximity ^ 2)
                 
