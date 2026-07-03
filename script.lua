@@ -256,7 +256,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
                 FriendsList[targetPlayer.UserId] = nil -- Удаляем из друзей
                 if targetPlayer.Character then
                     local hl = targetPlayer.Character:FindFirstChild('ESP_Highlight')
-                    if hl then hl:FillColor = Color3.fromRGB(255, 60, 60) end
+                    if hl then hl.FillColor = Color3.fromRGB(255, 60, 60) end
                 end
                 print("Удален из друзей: " .. targetPlayer.Name)
             else
