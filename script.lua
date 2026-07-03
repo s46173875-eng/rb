@@ -16,10 +16,8 @@ _G.CHANGE_AIM  = Enum.KeyCode.M     -- Клавиша "M"
 _G.AIM_AT = 'Head' -- 'Head' или 'Torso'
 
 -- === ОБНОВЛЕННЫЕ НАСТРОЙКИ СКОРОСТИ И ФИКСАЦИИ ===
-local FOV_RADIUS = 100          -- Увеличенный радиус круга FOV по запросу
+local FOV_RADIUS = 90          -- Увеличенный радиус круга FOV по запросу
 local FOV_COLOR = Color3.fromRGB(255, 255, 255) 
-local BASE_SMOOTHNESS = 0.10   -- Крайне слабый и беспалевный магнит на расстоянии
-local TIGHT_LOCK_MULT = 40.0    -- Огромный множитель для фиксации намертво в центре
 
 -- Рисуем FOV круг через Drawing API
 local FOVCircle = Drawing.new("Circle")
@@ -131,7 +129,6 @@ local function CREATE_ESP(character, player)
         BillboardGui.Name = 'ESP_Tag'
         BillboardGui.Parent = head
         BillboardGui.AlwaysOnTop = true
-        -- Увеличена высота контейнера для размещения двух строчек текста
         BillboardGui.Size = UDim2.new(0, 150, 0, 40)
         BillboardGui.ExtentsOffset = Vector3.new(0, 2.5, 0)
         
@@ -172,17 +169,13 @@ task.spawn(function()
                         if _G.FREE_FOR_ALL or v.TeamColor ~= PLAYER.TeamColor then
                             CREATE_ESP(v.Character, v)
                             
-                            -- Динамическое обновление текста (Метры над головой и ХП в %)
                             local head = v.Character:FindFirstChild('Head')
                             local tag = head and head:FindFirstChild('ESP_Tag')
                             local textLabel = tag and tag:FindFirstChild('ESP_Text')
                             
                             if textLabel then
-                                -- Вычисляем расстояние в метрах (дистанция в Studs деленная на 3)
                                 local distance = math.floor((CC.CFrame.Position - head.Position).Magnitude / 3)
-                                -- Вычисляем здоровье в процентах
                                 local hpPercent = math.floor((hum.Health / hum.MaxHealth) * 100)
-                                
                                 textLabel.Text = string.format("%s | %dm\n[%d%%]", v.Name:upper(), distance, hpPercent)
                             end
                         end
@@ -193,7 +186,7 @@ task.spawn(function()
                 end
             end
         end
-        task.wait(0.1) -- Частота обновления уменьшена до 0.1 сек для плавного изменения метров
+        task.wait(0.1)
     end
 end)
 
@@ -230,7 +223,7 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- === ЦИКЛ РЕНДЕРА ===
+-- === ЦИКЛ РЕНДЕРА С ПЛАВНЫМ ДИНАМИЧЕСКИМ МАГНИТОМ ===
 RunService.RenderStepped:Connect(function()
     FOVCircle.Position = Vector2.new(CC.ViewportSize.X / 2, CC.ViewportSize.Y / 2)
     
@@ -241,12 +234,16 @@ RunService.RenderStepped:Connect(function()
             if targetPart then
                 local _, distToCenter = IsInFOV(targetPart.Position)
                 
-                -- Адаптивный лок
-                local currentSmoothness = BASE_SMOOTHNESS
-                -- Если цель находится в пределах 15 пикселей от центра прицела — фиксирует намертво
-                if distToCenter < 15 then
-                    currentSmoothness = BASE_SMOOTHNESS * TIGHT_LOCK_MULT
-                end
+                -- === НАСТРОЙКИ СКОРОСТИ И ПЛАВНОСТИ НАВЕДЕНИЯ ===
+                local startSmoothness = 0.04   -- Скорость доводки на краю круга (быстрее, чем раньше)
+                local maxSmoothness = 0.20     -- Максимальное залипание в центре (плавное, без дёрганья)
+                
+                -- Вычисляем близость к центру (от 0 на краю до 1 в центре круга)
+                local proximity = 1 - math.clamp(distToCenter / FOV_RADIUS, 0, 1)
+                
+                -- Плавное параболическое нарастание скорости, чтобы не было резких рывков
+                local currentSmoothness = startSmoothness + (maxSmoothness - startSmoothness) * (proximity ^ 2)
+                
                 local targetCFrame = CFrame.new(CC.CFrame.Position, targetPart.Position)
                 CC.CFrame = CC.CFrame:Lerp(targetCFrame, math.clamp(currentSmoothness, 0, 1))
                 GUI_TARGET.Text = 'AIMBOT : LOCK'
