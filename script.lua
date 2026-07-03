@@ -10,6 +10,9 @@ local ENABLED      = false
 local ESP_ENABLED  = false
 local TRACK        = false
 
+-- Таблица для хранения ID друзей
+local FriendsList = {}
+
 _G.FREE_FOR_ALL = true
 _G.ESP_BIND    = Enum.KeyCode.Comma -- Клавиша "," (Б в русской раскладке)
 _G.CHANGE_AIM  = Enum.KeyCode.M     -- Клавиша "M"
@@ -112,16 +115,22 @@ GUI_AIM_AT.Font = Enum.Font.SourceSansBold
 local function CREATE_ESP(character, player)
     if not character or not player then return end
     
+    -- Определяем цвет (зеленый для друзей, красный для врагов)
+    local isFriend = FriendsList[player.UserId]
+    local mainColor = isFriend and Color3.fromRGB(60, 255, 60) or Color3.fromRGB(255, 60, 60)
+    
     if not character:FindFirstChild('ESP_Highlight') then
         local Highlight = Instance.new('Highlight')
         Highlight.Name = 'ESP_Highlight'
         Highlight.Parent = character
-        Highlight.FillColor = Color3.fromRGB(255, 60, 60)
         Highlight.FillTransparency = 0.65
         Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
         Highlight.OutlineTransparency = 0.1
         Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     end
+    
+    local hl = character:FindFirstChild('ESP_Highlight')
+    if hl then hl:FillColor = mainColor end
 
     local head = character:FindFirstChild('Head')
     if head and not head:FindFirstChild('ESP_Tag') then
@@ -129,20 +138,39 @@ local function CREATE_ESP(character, player)
         BillboardGui.Name = 'ESP_Tag'
         BillboardGui.Parent = head
         BillboardGui.AlwaysOnTop = true
-        BillboardGui.Size = UDim2.new(0, 150, 0, 40)
-        BillboardGui.ExtentsOffset = Vector3.new(0, 2.5, 0)
+        BillboardGui.Size = UDim2.new(0, 120, 0, 30) -- Уменьшенный контейнер
+        BillboardGui.ExtentsOffset = Vector3.new(0, 2.0, 0)
         
-        local TextLabel = Instance.new('TextLabel')
-        TextLabel.Name = 'ESP_Text'
-        TextLabel.Parent = BillboardGui
-        TextLabel.BackgroundTransparency = 1
-        TextLabel.Size = UDim2.new(1, 0, 1, 0)
-        TextLabel.Text = player.Name:upper()
-        TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        TextLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        TextLabel.TextStrokeTransparency = 0
-        TextLabel.TextSize = 10
-        TextLabel.Font = Enum.Font.SourceSansBold
+        local NameLabel = Instance.new('TextLabel')
+        NameLabel.Name = 'ESP_Text'
+        NameLabel.Parent = BillboardGui
+        NameLabel.BackgroundTransparency = 1
+        NameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        NameLabel.Position = UDim2.new(0, 0, 0, 0)
+        NameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        NameLabel.TextStrokeTransparency = 0
+        NameLabel.TextSize = 9 -- УМЕНЬШЕННЫЙ ШРИФТ ДЛЯ НИКА
+        NameLabel.Font = Enum.Font.SourceSansBold
+        
+        local HPLabel = Instance.new('TextLabel')
+        HPLabel.Name = 'ESP_HP'
+        HPLabel.Parent = BillboardGui
+        HPLabel.BackgroundTransparency = 1
+        HPLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        HPLabel.Position = UDim2.new(0, 0, 0.5, 0)
+        HPLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        HPLabel.TextStrokeTransparency = 0
+        HPLabel.TextSize = 8 -- ОЧЕНЬ МАЛЕНЬКИЙ ШРИФТ ДЛЯ ХП
+        HPLabel.Font = Enum.Font.SourceSansBold
+    end
+    
+    -- Динамически красим текст над головой
+    local tag = head and head:FindFirstChild('ESP_Tag')
+    if tag then
+        local nl = tag:FindFirstChild('ESP_Text')
+        local hl_text = tag:FindFirstChild('ESP_HP')
+        if nl then nl.TextColor3 = mainColor end
+        if hl_text then hl_text.TextColor3 = mainColor end
     end
 end
 
@@ -171,12 +199,15 @@ task.spawn(function()
                             
                             local head = v.Character:FindFirstChild('Head')
                             local tag = head and head:FindFirstChild('ESP_Tag')
-                            local textLabel = tag and tag:FindFirstChild('ESP_Text')
+                            local nameLabel = tag and tag:FindFirstChild('ESP_Text')
+                            local hpLabel = tag and tag:FindFirstChild('ESP_HP')
                             
-                            if textLabel then
+                            if nameLabel and hpLabel then
                                 local distance = math.floor((CC.CFrame.Position - head.Position).Magnitude / 3)
                                 local hpPercent = math.floor((hum.Health / hum.MaxHealth) * 100)
-                                textLabel.Text = string.format("%s | %dm\n[%d%%]", v.Name:upper(), distance, hpPercent)
+                                
+                                nameLabel.Text = string.format("%s | %dM", v.Name:upper(), distance)
+                                hpLabel.Text = string.format("[%d%%]", hpPercent)
                             end
                         end
                     else
@@ -214,6 +245,25 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
             _G.AIM_AT = 'Head'
             GUI_AIM_AT.Text = 'AIMING : HEAD'
         end
+    -- КЛАВИША ДОБАВЛЕНИЯ В ДРУЗЬЯ (Правый Ctrl)
+    elseif input.KeyCode == Enum.KeyCode.RightControl then
+        local targetPlayer = GetNearestPlayerToMouse()
+        if targetPlayer then
+            if FriendsList[targetPlayer.UserId] then
+                FriendsList[targetPlayer.UserId] = nil -- Удаляем из друзей
+                if targetPlayer.Character then
+                    local hl = targetPlayer.Character:FindFirstChild('ESP_Highlight')
+                    if hl then hl:FillColor = Color3.fromRGB(255, 60, 60) end
+                print("Удален из друзей: " .. targetPlayer.Name)
+            else
+                FriendsList[targetPlayer.UserId] = true -- Добавляем в друзья
+                if targetPlayer.Character then
+                    local hl = targetPlayer.Character:FindFirstChild('ESP_Highlight')
+                    if hl then hl:FillColor = Color3.fromRGB(60, 255, 60) end
+                end
+                print("Добавлен в друзья: " .. targetPlayer.Name)
+            end
+        end
     end
 end)
 
@@ -223,25 +273,28 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- === ЦИКЛ РЕНДЕРА С ПЛАВНЫМ ДИНАМИЧЕСКИМ МАГНИТОМ ===
+-- === ЦИКЛ РЕНДЕРА С ПЛАВНЫМ ДИНАМИЧЕСКИМ МАГНИТОМ И СИСТЕМОЙ ДРУЗЕЙ ===
 RunService.RenderStepped:Connect(function()
     FOVCircle.Position = Vector2.new(CC.ViewportSize.X / 2, CC.ViewportSize.Y / 2)
     
     if ENABLED then
         local TARGET = GetNearestPlayerToMouse()
+        
+        -- ПРОВЕРКА: Если цель в списке друзей, аимбот полностью игнорирует её
+        if TARGET and FriendsList[TARGET.UserId] then
+            TARGET = nil
+        end
+        
         if TARGET and TARGET.Character then
             local targetPart = GetAimPart(TARGET.Character)
             if targetPart then
                 local _, distToCenter = IsInFOV(targetPart.Position)
                 
                 -- === НАСТРОЙКИ СКОРОСТИ И ПЛАВНОСТИ НАВЕДЕНИЯ ===
-                local startSmoothness = 0.04   -- Скорость доводки на краю круга (быстрее, чем раньше)
-                local maxSmoothness = 0.20     -- Максимальное залипание в центре (плавное, без дёрганья)
+                local startSmoothness = 0.04   -- Скорость доводки на краю круга
+                local maxSmoothness = 0.20     -- Максимальное залипание в центре
                 
-                -- Вычисляем близость к центру (от 0 на краю до 1 в центре круга)
                 local proximity = 1 - math.clamp(distToCenter / FOV_RADIUS, 0, 1)
-                
-                -- Плавное параболическое нарастание скорости, чтобы не было резких рывков
                 local currentSmoothness = startSmoothness + (maxSmoothness - startSmoothness) * (proximity ^ 2)
                 
                 local targetCFrame = CFrame.new(CC.CFrame.Position, targetPart.Position)
