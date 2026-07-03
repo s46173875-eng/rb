@@ -18,7 +18,7 @@ _G.AIM_AT = 'Head' -- 'Head' или 'Torso'
 -- === ОБНОВЛЕННЫЕ НАСТРОЙКИ СКОРОСТИ И ФИКСАЦИИ ===
 local FOV_RADIUS = 100          -- Увеличенный радиус круга FOV по запросу
 local FOV_COLOR = Color3.fromRGB(255, 255, 255) 
-local BASE_SMOOTHNESS = 0.025   -- Крайне слабый и беспалевный магнит на расстоянии
+local BASE_SMOOTHNESS = 0.10   -- Крайне слабый и беспалевный магнит на расстоянии
 local TIGHT_LOCK_MULT = 40.0    -- Огромный множитель для фиксации намертво в центре
 
 -- Рисуем FOV круг через Drawing API
