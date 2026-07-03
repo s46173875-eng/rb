@@ -85,7 +85,7 @@ local function GetNearestPlayerToMouse()
 end
 
 -- === СОЗДАНИЕ ИНТЕРФЕЙСА (GUI) ===
-local GUI_MAIN = Instance.new('ScreenGui', game.CoreGui)
+local GUI_MAIN = Instance.new('ScreenGui', PLAYER:WaitForChild("PlayerGui"))
 GUI_MAIN.Name = 'WALL_AIMBOT_FAST'
 GUI_MAIN.ResetOnSpawn = false
 
@@ -221,6 +221,9 @@ task.spawn(function()
     end
 end)
 
+    -- === ПРОВЕРКА ДЛЯ БЕЗОПАСНОСТИ ПК-ИНЖЕКТОРОВ ===
+local CURRENT_FOV = FOV_RADIUS or 90 -- Если локальный радиус потерялся, берем 90 по умолчанию
+
 -- === ОТСЛЕЖИВАНИЕ ВВОДА ===
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
@@ -276,7 +279,10 @@ end)
 
 -- === ЦИКЛ РЕНДЕРА С ПЛАВНЫМ ДИНАМИЧЕСКИМ МАГНИТОМ И СИСТЕМОЙ ДРУЗЕЙ ===
 RunService.RenderStepped:Connect(function()
-    FOVCircle.Position = Vector2.new(CC.ViewportSize.X / 2, CC.ViewportSize.Y / 2)
+    -- Безопасная проверка существования круга
+    if FOVCircle then
+        FOVCircle.Position = Vector2.new(CC.ViewportSize.X / 2, CC.ViewportSize.Y / 2)
+    end
     
     if ENABLED then
         local TARGET = GetNearestPlayerToMouse()
@@ -295,7 +301,8 @@ RunService.RenderStepped:Connect(function()
                 local startSmoothness = 0.04   -- Скорость доводки на краю круга
                 local maxSmoothness = 0.20     -- Максимальное залипание в центре
                 
-                local proximity = 1 - math.clamp(distToCenter / FOV_RADIUS, 0, 1)
+                -- Используем защищенную переменную радиуса CURRENT_FOV вместо FOV_RADIUS
+                local proximity = 1 - math.clamp(distToCenter / CURRENT_FOV, 0, 1)
                 local currentSmoothness = startSmoothness + (maxSmoothness - startSmoothness) * (proximity ^ 2)
                 
                 local targetCFrame = CFrame.new(CC.CFrame.Position, targetPart.Position)
