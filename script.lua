@@ -130,7 +130,7 @@ local function CREATE_ESP(character, player)
     end
     
     local hl = character:FindFirstChild('ESP_Highlight')
-    if hl then hl:FillColor = mainColor end
+    if hl then hl.FillColor = mainColor end
 
     local head = character:FindFirstChild('Head')
     if head and not head:FindFirstChild('ESP_Tag') then
