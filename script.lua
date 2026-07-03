@@ -143,8 +143,8 @@ local function CREATE_ESP(character, player)
         BillboardGui.Name = 'ESP_Tag'
         BillboardGui.Parent = head
         BillboardGui.AlwaysOnTop = true
-        BillboardGui.Size = UDim2.new(0, 120, 0, 30)
-        BillboardGui.ExtentsOffset = Vector3.new(0, 2.0, 0)
+        BillboardGui.Size = UDim2.new(0, 150, 0, 40)
+        BillboardGui.ExtentsOffset = Vector3.new(0, 3.1, 0)
         
         local NameLabel = Instance.new('TextLabel')
         NameLabel.Name = 'ESP_Text'
@@ -165,7 +165,7 @@ local function CREATE_ESP(character, player)
         HPLabel.Position = UDim2.new(0, 0, 0.5, 0)
         HPLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
         HPLabel.TextStrokeTransparency = 0
-        HPLabel.TextSize = 8
+        HPLabel.TextSize = 12
         HPLabel.Font = Enum.Font.SourceSansBold
     end
     
