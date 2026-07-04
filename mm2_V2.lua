@@ -2,35 +2,34 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local PLAYER = Players.LocalPlayer
 local MOUSE = PLAYER:GetMouse()
 local CC = game.Workspace.CurrentCamera
 
-_G.SHOW_MURDERER = true
-_G.SHOW_SHERIFF = true
-_G.SHOW_INNOCENTS = true
-_G.AIM_ENABLED = true -- Переключатель кнопкой R теперь связан с этим значением
+_G.SHOW_MURDERER = false
+_G.SHOW_SHERIFF = false
+_G.SHOW_INNOCENTS = false
+_G.AIM_ENABLED = false
+_G.MOBILE_SHOOT_GUI = false
 
 local AIM_LOCK = false
 local TARGET = nil
 _G.AIM_BIND = 'r'
+local PREDICTION_COEF = 0.215
+local AIM_SMOOTHNESS = 0.25
 
-local PREDICTION_COEF = 0.215 -- Оптимизировано под 100% попадание на бегу
-
--- Очистка старого GUI
 if CoreGui:FindFirstChild("MM2_Menu") then
     CoreGui.MM2_Menu:Destroy()
 end
 
--- === СОЗДАНИЕ ГЛАВНОГО ИНТЕРФЕЙСА ===
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 ScreenGui.Name = "MM2_Menu"
 ScreenGui.ResetOnSpawn = false
 
--- Главный фрейм
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 360, 0, 255) -- Чуть увеличили высоту под ТГК
+MainFrame.Size = UDim2.new(0, 360, 0, 255)
 MainFrame.Position = UDim2.new(0.5, -180, 0.4, -127)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
@@ -40,7 +39,6 @@ MainFrame.Draggable = true
 local MainCorner = Instance.new("UICorner", MainFrame)
 MainCorner.CornerRadius = UDim.new(0, 6)
 
--- Кнопка закрытия (Крестик)
 local CloseBtn = Instance.new("TextButton", MainFrame)
 CloseBtn.Size = UDim2.new(0, 25, 0, 25)
 CloseBtn.Position = UDim2.new(1, -30, 0, 5)
@@ -50,7 +48,6 @@ CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
 CloseBtn.Font = Enum.Font.SourceSansBold
 CloseBtn.TextSize = 18
 
--- Маленький квадратный виджет при сворачивании
 local MiniFrame = Instance.new("TextButton", ScreenGui)
 MiniFrame.Size = UDim2.new(0, 45, 0, 45)
 MiniFrame.Position = UDim2.new(0.5, -22, 0.4, -22)
@@ -79,9 +76,8 @@ MiniFrame.MouseButton1Click:Connect(function()
     MainFrame.Visible = true
 end)
 
--- === ПАНЕЛЬ КАТЕГОРИЙ (ТАБЫ) ===
 local TabContainer = Instance.new("Frame", MainFrame)
-TabContainer.Size = UDim2.new(0, 100, 1, -35) -- Оставили место снизу под ТГК
+TabContainer.Size = UDim2.new(0, 100, 1, -35)
 TabContainer.Position = UDim2.new(0, 5, 0, 5)
 TabContainer.BackgroundTransparency = 1
 
@@ -100,87 +96,72 @@ AimPage.Size = UDim2.new(1, 0, 1, 0)
 AimPage.BackgroundTransparency = 1
 AimPage.Visible = false
 
--- ТЕКСТ ТВОЕГО ТГ-КАНАЛА ВНИЗУ МЕНЮ
+local MiscPage = Instance.new("Frame", PagesContainer)
+MiscPage.Size = UDim2.new(1, 0, 1, 0)
+MiscPage.BackgroundTransparency = 1
+MiscPage.Visible = false
+
 local TgcLabel = Instance.new("TextLabel", MainFrame)
 TgcLabel.Size = UDim2.new(1, -10, 0, 20)
 TgcLabel.Position = UDim2.new(0, 5, 1, -22)
 TgcLabel.BackgroundTransparency = 1
 TgcLabel.Text = "TGK: VNMA_OFFICIAL"
-TgcLabel.TextColor3 = Color3.fromRGB(0, 200, 255) -- Красивый неоново-голубой цвет Telegram
+TgcLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
 TgcLabel.Font = Enum.Font.SourceSansBold
 TgcLabel.TextSize = 13
 TgcLabel.TextXAlignment = Enum.TextXAlignment.Center
-
--- Функция переключения вкладок
 local function SwitchTab(pageToShow)
     EspPage.Visible = false
     AimPage.Visible = false
+    MiscPage.Visible = false
     pageToShow.Visible = true
 end
 
--- Кнопка вкладки ESP
-local EspTabBtn = Instance.new("TextButton", TabContainer)
-EspTabBtn.Size = UDim2.new(1, 0, 0, 35)
-EspTabBtn.Position = UDim2.new(0, 0, 0, 10)
-EspTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-EspTabBtn.Text = "ESP"
-EspTabBtn.TextColor3 = Color3.fromRGB(255, 180, 0)
-EspTabBtn.Font = Enum.Font.SourceSansBold
-EspTabBtn.TextSize = 14
-local btnCorner1 = Instance.new("UICorner", EspTabBtn)
-btnCorner1.CornerRadius = UDim.new(0, 4)
+local function CreateTabBtn(text, pos, page)
+    local TabBtn = Instance.new("TextButton", TabContainer)
+    TabBtn.Size = UDim2.new(1, 0, 0, 35)
+    TabBtn.Position = pos
+    TabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    TabBtn.Text = text
+    TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TabBtn.Font = Enum.Font.SourceSansBold
+    TabBtn.TextSize = 13
+    local corner = Instance.new("UICorner", TabBtn)
+    corner.CornerRadius = UDim.new(0, 4)
+    TabBtn.MouseButton1Click:Connect(function()
+        SwitchTab(page)
+    end)
+    return TabBtn
+end
 
-EspTabBtn.MouseButton1Click:Connect(function()
-    SwitchTab(EspPage)
-end)
+local EspTab = CreateTabBtn("ESP", UDim2.new(0, 0, 0, 10), EspPage)
+local AimTab = CreateTabBtn("AIM BOT", UDim2.new(0, 0, 0, 50), AimPage)
+local MiscTab = CreateTabBtn("РАЗНОЕ", UDim2.new(0, 0, 0, 90), MiscPage)
 
--- Кнопка вкладки AIM BOT
-local AimTabBtn = Instance.new("TextButton", TabContainer)
-AimTabBtn.Size = UDim2.new(1, 0, 0, 35)
-AimTabBtn.Position = UDim2.new(0, 0, 0, 50)
-AimTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-AimTabBtn.Text = "AIM BOT"
-AimTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-AimTabBtn.Font = Enum.Font.SourceSansBold
-AimTabBtn.TextSize = 14
-local btnCorner2 = Instance.new("UICorner", AimTabBtn)
-btnCorner2.CornerRadius = UDim.new(0, 4)
+local function CreatePageTitle(text, parent)
+    local Title = Instance.new("TextLabel", parent)
+    Title.Size = UDim2.new(1, 0, 0, 25)
+    Title.Position = UDim2.new(0, 0, 0, 5)
+    Title.BackgroundTransparency = 1
+    Title.Text = text
+    Title.TextColor3 = Color3.fromRGB(255, 180, 0)
+    Title.Font = Enum.Font.SourceSansBold
+    Title.TextSize = 15
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+end
 
-AimTabBtn.MouseButton1Click:Connect(function()
-    SwitchTab(AimPage)
-end)
+CreatePageTitle("ВИЗУАЛЬНЫЕ НАСТРОЙКИ", EspPage)
+CreatePageTitle("НАСТРОЙКИ АИМБОТА", AimPage)
+CreatePageTitle("ДОПОЛНИТЕЛЬНО", MiscPage)
 
--- === ТИТУЛЬНИКИ И ПЕРЕКЛЮЧАТЕЛИ ===
-local EspTitle = Instance.new("TextLabel", EspPage)
-EspTitle.Size = UDim2.new(1, 0, 0, 25)
-EspTitle.Position = UDim2.new(0, 0, 0, 5)
-EspTitle.BackgroundTransparency = 1
-EspTitle.Text = "ВИЗУАЛЬНЫЕ НАСТРОЙКИ"
-EspTitle.TextColor3 = Color3.fromRGB(255, 180, 0)
-EspTitle.Font = Enum.Font.SourceSansBold
-EspTitle.TextSize = 16
-EspTitle.TextXAlignment = Enum.TextXAlignment.Left
-
-local AimTitle = Instance.new("TextLabel", AimPage)
-AimTitle.Size = UDim2.new(1, 0, 0, 25)
-AimTitle.Position = UDim2.new(0, 0, 0, 5)
-AimTitle.BackgroundTransparency = 1
-AimTitle.Text = "НАСТРОЙКИ АИМБОТА"
-AimTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-AimTitle.Font = Enum.Font.SourceSansBold
-AimTitle.TextSize = 16
-AimTitle.TextXAlignment = Enum.TextXAlignment.Left
-
--- Таблица для глобального обновления текста кнопок извне
 local ToggleLabels = {}
-
 local function CreateToggle(text, pos, state_var, color, parentPage)
     local LabelBtn = Instance.new("TextButton", parentPage)
     LabelBtn.Size = UDim2.new(1, 0, 0, 25)
     LabelBtn.Position = pos
     LabelBtn.BackgroundTransparency = 1
     LabelBtn.Font = Enum.Font.SourceSansBold
-    LabelBtn.TextSize = 16
+    LabelBtn.TextSize = 15
     LabelBtn.TextXAlignment = Enum.TextXAlignment.Left
     
     local function refresh()
@@ -194,23 +175,49 @@ local function CreateToggle(text, pos, state_var, color, parentPage)
     end
     
     refresh()
-    ToggleLabels[state_var] = refresh -- Сохраняем функцию обновления в таблицу
-    
+    ToggleLabels[state_var] = refresh
     LabelBtn.MouseButton1Click:Connect(function()
         _G[state_var] = not _G[state_var]
         refresh()
     end)
 end
 
--- Наполнение страницы ESP
 CreateToggle("Убийца", UDim2.new(0, 0, 0, 35), "SHOW_MURDERER", Color3.fromRGB(255, 50, 50), EspPage)
 CreateToggle("Шериф", UDim2.new(0, 0, 0, 65), "SHOW_SHERIFF", Color3.fromRGB(50, 150, 255), EspPage)
 CreateToggle("Невинный", UDim2.new(0, 0, 0, 95), "SHOW_INNOCENTS", Color3.fromRGB(50, 255, 50), EspPage)
 
--- Наполнение страницы AIM
 CreateToggle("Активировать AIM [".._G.AIM_BIND:upper().."]", UDim2.new(0, 0, 0, 35), "AIM_ENABLED", Color3.fromRGB(255, 80, 80), AimPage)
+CreateToggle("Кнопка стрельбы (Мобилки)", UDim2.new(0, 0, 0, 75), "MOBILE_SHOOT_GUI", Color3.fromRGB(0, 200, 255), AimPage)
 
--- === ЛОГИКА ДЕТЕКТА И АИМБОТА ===
+local MobileShootBtn = Instance.new("TextButton", ScreenGui)
+MobileShootBtn.Name = "MobileShootButton"
+MobileShootBtn.Size = UDim2.new(0, 65, 0, 65)
+MobileShootBtn.Position = UDim2.new(0.75, 0, 0.5, 0)
+MobileShootBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+MobileShootBtn.BackgroundTransparency = 0.3
+MobileShootBtn.Text = "🔥"
+MobileShootBtn.TextSize = 28
+MobileShootBtn.TextColor3 = Color3.new(1, 1, 1)
+MobileShootBtn.Font = Enum.Font.SourceSansBold
+MobileShootBtn.Visible = false
+MobileShootBtn.Active = true
+MobileShootBtn.Draggable = true
+
+local ShootCorner = Instance.new("UICorner", MobileShootBtn)
+ShootCorner.CornerRadius = UDim.new(1, 0)
+
+local ShootStroke = Instance.new("UIStroke", MobileShootBtn)
+ShootStroke.Color = Color3.new(1, 1, 1)
+ShootStroke.Thickness = 2
+
+task.spawn(function()
+    while true do
+        if MobileShootBtn.Visible ~= _G.MOBILE_SHOOT_GUI then
+            MobileShootBtn.Visible = _G.MOBILE_SHOOT_GUI
+        end
+        task.wait(0.2)
+    end
+end)
 local function GetRole(player)
     if not player or not player:FindFirstChild("Backpack") or not player.Character then return "Innocent" end
     if player.Backpack:FindFirstChild("Knife") or player.Character:FindFirstChild("Knife") then return "Murderer" end
@@ -297,23 +304,36 @@ function UPDATE_ESP(CHARACTER, PLAYER_OBJ)
         end
     end
 end
+local function TriggerAutoShoot()
+    if not _G.AIM_ENABLED then return end
+    local currentTarget = GetClosestPlayer()
+    if currentTarget and currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart") then
+        local bodyPart = currentTarget.Character.HumanoidRootPart
+        local predictedPosition = bodyPart.Position + (bodyPart.Velocity * PREDICTION_COEF)
+        CC.CFrame = CFrame.new(CC.CFrame.Position, predictedPosition)
+        task.wait()
+        local x = CC.ViewportSize.X / 2
+        local y = CC.ViewportSize.Y / 2
+        VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
+        task.wait(0.05)
+        VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+    end
+end
+
+MobileShootBtn.MouseButton1Click:Connect(TriggerAutoShoot)
 
 UserInputService.InputBegan:Connect(function(i, g)
     if g then return end
-    
-    -- Синхронизация кнопки R с галочкой в меню
     if i.KeyCode == Enum.KeyCode.R then
         _G.AIM_ENABLED = not _G.AIM_ENABLED
         if ToggleLabels["AIM_ENABLED"] then
-            ToggleLabels["AIM_ENABLED"]() -- Обновляем ✅ / ❌ в интерфейсе
+            ToggleLabels["AIM_ENABLED"]()
         end
         if not _G.AIM_ENABLED then
             AIM_LOCK = false
             TARGET = nil
         end
     end
-    
-    -- Нажатие ПКМ при включенном Аиме активирует жесткий захват
     if i.UserInputType == Enum.UserInputType.MouseButton2 and _G.AIM_ENABLED then
         AIM_LOCK = true
         TARGET = GetClosestPlayer()
@@ -322,24 +342,19 @@ end)
 
 UserInputService.InputEnded:Connect(function(i, g)
     if g then return end
-    
     if i.UserInputType == Enum.UserInputType.MouseButton2 then
         AIM_LOCK = false
         TARGET = nil
     end
 end)
 
-RunService.RenderStepped:Connect(function()
-    for _, v in pairs(Players:GetPlayers()) do
-        if v ~= PLAYER and v.Character and v.Character:FindFirstChild('Head') then
-            UPDATE_ESP(v.Character, v)
-        end
-    end
+GunDropBtn.MouseButton1Click:Connect(TeleportToGunAndBack)
+UserInputService.InputBegan:Connect(function(i, g)
+    if not g and i.KeyCode == Enum.KeyCode.T then TeleportToGunAndBack() end
+end)
+
+
+RefreshBtn.MouseButton1Click:Connect(function()
     
-    -- 100% Попадание: Мгновенное и жесткое наведение в тело (HumanoidRootPart) без задержек
-    if AIM_LOCK and TARGET and TARGET.Character and TARGET.Character:FindFirstChild("HumanoidRootPart") then
-        local bodyPart = TARGET.Character.HumanoidRootPart
-        local predictedPosition = bodyPart.Position + (bodyPart.Velocity * PREDICTION_COEF)
-        CC.CFrame = CFrame.new(CC.CFrame.Position, predictedPosition)
-    end
+    loadstring(game:HttpGet("https://githubusercontent.com"))()
 end)
