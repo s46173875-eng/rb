@@ -16,9 +16,8 @@ _G.MOBILE_SHOOT_GUI = false
 
 local AIM_LOCK = false
 local TARGET = nil
-_G.AIM_BIND = 'r'
+_G.AIM_BIND = "r"
 local PREDICTION_COEF = 0.215
-local AIM_SMOOTHNESS = 0.25
 
 if CoreGui:FindFirstChild("MM2_Menu") then
     CoreGui.MM2_Menu:Destroy()
@@ -77,13 +76,13 @@ MiniFrame.MouseButton1Click:Connect(function()
 end)
 
 local TabContainer = Instance.new("Frame", MainFrame)
-TabContainer.Size = UDim2.new(0, 100, 1, -35)
+TabContainer.Size = UDim2.new(0, 110, 1, -35) -- Сделали чуть шире под мобилки
 TabContainer.Position = UDim2.new(0, 5, 0, 5)
 TabContainer.BackgroundTransparency = 1
 
 local PagesContainer = Instance.new("Frame", MainFrame)
-PagesContainer.Size = UDim2.new(1, -115, 1, -35)
-PagesContainer.Position = UDim2.new(0, 110, 0, 5)
+PagesContainer.Size = UDim2.new(1, -125, 1, -35)
+PagesContainer.Position = UDim2.new(0, 120, 0, 5)
 PagesContainer.BackgroundTransparency = 1
 
 local EspPage = Instance.new("Frame", PagesContainer)
@@ -110,6 +109,7 @@ TgcLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
 TgcLabel.Font = Enum.Font.SourceSansBold
 TgcLabel.TextSize = 13
 TgcLabel.TextXAlignment = Enum.TextXAlignment.Center
+
 local function SwitchTab(pageToShow)
     EspPage.Visible = false
     AimPage.Visible = false
@@ -126,6 +126,7 @@ local function CreateTabBtn(text, pos, page)
     TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     TabBtn.Font = Enum.Font.SourceSansBold
     TabBtn.TextSize = 13
+    TabBtn.TextXAlignment = Enum.TextXAlignment.Center -- Исправлено: текст теперь ровно по центру!
     local corner = Instance.new("UICorner", TabBtn)
     corner.CornerRadius = UDim.new(0, 4)
     TabBtn.MouseButton1Click:Connect(function()
@@ -186,8 +187,8 @@ CreateToggle("Убийца", UDim2.new(0, 0, 0, 35), "SHOW_MURDERER", Color3.fro
 CreateToggle("Шериф", UDim2.new(0, 0, 0, 65), "SHOW_SHERIFF", Color3.fromRGB(50, 150, 255), EspPage)
 CreateToggle("Невинный", UDim2.new(0, 0, 0, 95), "SHOW_INNOCENTS", Color3.fromRGB(50, 255, 50), EspPage)
 
-CreateToggle("Активировать AIM [".._G.AIM_BIND:upper().."]", UDim2.new(0, 0, 0, 35), "AIM_ENABLED", Color3.fromRGB(255, 80, 80), AimPage)
-CreateToggle("Кнопка стрельбы (Мобилки)", UDim2.new(0, 0, 0, 75), "MOBILE_SHOOT_GUI", Color3.fromRGB(0, 200, 255), AimPage)
+CreateToggle("Активировать AIM [R]", UDim2.new(0, 0, 0, 35), "AIM_ENABLED", Color3.fromRGB(255, 80, 80), AimPage)
+CreateToggle("Кнопка стрельбы", UDim2.new(0, 0, 0, 65), "MOBILE_SHOOT_GUI", Color3.fromRGB(0, 200, 255), AimPage)
 
 local MobileShootBtn = Instance.new("TextButton", ScreenGui)
 MobileShootBtn.Name = "MobileShootButton"
@@ -218,6 +219,40 @@ task.spawn(function()
         task.wait(0.2)
     end
 end)
+local GunDropBtn = Instance.new("TextButton", MiscPage)
+GunDropBtn.Size = UDim2.new(1, 0, 0, 35)
+GunDropBtn.Position = UDim2.new(0, 0, 0, 35)
+GunDropBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+GunDropBtn.Text = "ПОДОБРАТЬ ПИСТОЛЕТ [T]"
+GunDropBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+GunDropBtn.Font = Enum.Font.SourceSansBold
+GunDropBtn.TextSize = 14
+local gunCorner = Instance.new("UICorner", GunDropBtn)
+gunCorner.CornerRadius = UDim.new(0, 4)
+
+local RefreshBtn = Instance.new("TextButton", MiscPage)
+RefreshBtn.Size = UDim2.new(1, 0, 0, 35)
+RefreshBtn.Position = UDim2.new(0, 0, 0, 75)
+RefreshBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+RefreshBtn.Text = "ОБНОВИТЬ СКРИПТ 🔄"
+RefreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+RefreshBtn.Font = Enum.Font.SourceSansBold
+RefreshBtn.TextSize = 14
+RefreshBtn.BorderSizePixel = 0
+local RefCorner = Instance.new("UICorner", RefreshBtn)
+RefCorner.CornerRadius = UDim.new(0, 4)
+
+RefreshBtn.MouseButton1Click:Connect(function()
+    for _, v in pairs(Players:GetPlayers()) do
+        if v.Character then
+            if v.Character:FindFirstChild('ESP_Highlight') then v.Character.ESP_Highlight:Destroy() end
+            if v.Character:FindFirstChild('Head') and v.Character.Head:FindFirstChild('ESP_Tag') then v.Character.Head.ESP_Tag:Destroy() end
+        end
+    end
+    ScreenGui:Destroy()
+    loadstring(game:HttpGet("https://githubusercontent.com"))()
+end)
+
 local function GetRole(player)
     if not player or not player:FindFirstChild("Backpack") or not player.Character then return "Innocent" end
     if player.Backpack:FindFirstChild("Knife") or player.Character:FindFirstChild("Knife") then return "Murderer" end
@@ -243,7 +278,6 @@ function GetClosestPlayer()
     end
     return closest
 end
-
 function UPDATE_ESP(CHARACTER, PLAYER_OBJ)
     if not CHARACTER or not PLAYER_OBJ then return end
     local role = GetRole(PLAYER_OBJ)
@@ -304,6 +338,21 @@ function UPDATE_ESP(CHARACTER, PLAYER_OBJ)
         end
     end
 end
+
+local function TeleportToGunAndBack()
+    if not PLAYER.Character then return end
+    local root = PLAYER.Character:FindFirstChild("HumanoidRootPart")
+    local gunDrop = game.Workspace:FindFirstChild("GunDrop")
+    if root and gunDrop and gunDrop:IsA("BasePart") then
+        local oldCFrame = root.CFrame
+        root.CFrame = gunDrop.CFrame
+        task.wait(0.1)
+        root.CFrame = oldCFrame
+    end
+end
+
+GunDropBtn.MouseButton1Click:Connect(TeleportToGunAndBack)
+
 local function TriggerAutoShoot()
     if not _G.AIM_ENABLED then return end
     local currentTarget = GetClosestPlayer()
@@ -322,6 +371,7 @@ end
 
 MobileShootBtn.MouseButton1Click:Connect(TriggerAutoShoot)
 
+local AIM_READY = false
 UserInputService.InputBegan:Connect(function(i, g)
     if g then return end
     if i.KeyCode == Enum.KeyCode.R then
@@ -333,6 +383,9 @@ UserInputService.InputBegan:Connect(function(i, g)
             AIM_LOCK = false
             TARGET = nil
         end
+    end
+    if i.KeyCode == Enum.KeyCode.T then
+        TeleportToGunAndBack()
     end
     if i.UserInputType == Enum.UserInputType.MouseButton2 and _G.AIM_ENABLED then
         AIM_LOCK = true
@@ -348,13 +401,15 @@ UserInputService.InputEnded:Connect(function(i, g)
     end
 end)
 
-GunDropBtn.MouseButton1Click:Connect(TeleportToGunAndBack)
-UserInputService.InputBegan:Connect(function(i, g)
-    if not g and i.KeyCode == Enum.KeyCode.T then TeleportToGunAndBack() end
-end)
-
-
-RefreshBtn.MouseButton1Click:Connect(function()
-    
-    loadstring(game:HttpGet("https://githubusercontent.com"))()
+RunService.RenderStepped:Connect(function()
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= PLAYER and v.Character and v.Character:FindFirstChild('Head') then
+            UPDATE_ESP(v.Character, v)
+        end
+    end
+    if AIM_LOCK and TARGET and TARGET.Character and TARGET.Character:FindFirstChild("HumanoidRootPart") then
+        local bodyPart = TARGET.Character.HumanoidRootPart
+        local predictedPosition = bodyPart.Position + (bodyPart.Velocity * PREDICTION_COEF)
+        CC.CFrame = CFrame.new(CC.CFrame.Position, predictedPosition)
+    end
 end)
