@@ -59,7 +59,7 @@ CloseBtn.MouseButton1Click:Connect(function()
 end)
 MiniFrame.MouseButton1Click:Connect(function()
     MiniFrame.Visible = false
-    MainFrame.Position = UDim2.new(0, MiniFrame.AbsolutePosition.X, 0, MiniFrame.AbsolutePosition.Y)
+    MainFrame.Position = UDim2.new(0, MainFrame.AbsolutePosition.X, 0, MainFrame.AbsolutePosition.Y)
     MainFrame.Visible = true
 end)
 local TabContainer = Instance.new("Frame", MainFrame)
@@ -96,7 +96,8 @@ local function SwitchTab(pageToShow)
     AimPage.Visible = false
     MiscPage.Visible = false
     pageToShow.Visible = true
-endlocal function CreateTabBtn(text, pos, page)
+end
+local function CreateTabBtn(text, pos, page)
     local TabBtn = Instance.new("TextButton", TabContainer)
     TabBtn.Size = UDim2.new(1, 0, 0, 35)
     TabBtn.Position = pos
@@ -236,7 +237,7 @@ local function TeleportToGunAndBack()
     local root = PLAYER.Character:FindFirstChild("HumanoidRootPart")
     local gunDrop = game.Workspace:FindFirstChild("GunDrop", true) or game.Workspace:FindFirstChild("LugerDrop", true)
     if root and gunDrop and (gunDrop:IsA("BasePart") or gunDrop:IsA("Model")) then
-        local targetCFrame = gunDrop:IsA("Model") and gunDrop:GetPrimaryPartCFrame() or gunDrop.CFrame
+                local targetCFrame = gunDrop:IsA("Model") and gunDrop:GetPivot() or gunDrop.CFrame
         if targetCFrame then
             local oldCFrame = root.CFrame
             root.CFrame = targetCFrame
@@ -245,7 +246,9 @@ local function TeleportToGunAndBack()
         end
     end
 end
+
 GunDropBtn.MouseButton1Click:Connect(TeleportToGunAndBack)
+
 local function TriggerAutoShoot()
     if not _G.AIM_ENABLED then return end
     local currentGun = PLAYER.Character:FindFirstChild("Gun") or PLAYER.Character:FindFirstChild("Python")
@@ -262,7 +265,9 @@ local function TriggerAutoShoot()
         end
     end
 end
+
 MobileShootBtn.MouseButton1Click:Connect(TriggerAutoShoot)
+
 function UPDATE_ESP(CHARACTER, PLAYER_OBJ)
     if not CHARACTER or not PLAYER_OBJ then return end
     local role = GetRole(PLAYER_OBJ)
@@ -270,11 +275,13 @@ function UPDATE_ESP(CHARACTER, PLAYER_OBJ)
     if role == "Murderer" and _G.SHOW_MURDERER then shouldShow = true
     elseif role == "Sheriff" and _G.SHOW_SHERIFF then shouldShow = true
     elseif role == "Innocent" and _G.SHOW_INNOCENTS then shouldShow = true end
+    
     if not shouldShow then
         if CHARACTER:FindFirstChild('ESP_Highlight') then CHARACTER.ESP_Highlight:Destroy() end
         if CHARACTER:FindFirstChild('Head') and CHARACTER.Head:FindFirstChild('ESP_Tag') then CHARACTER.Head.ESP_Tag:Destroy() end
         return
     end
+    
     if not CHARACTER:FindFirstChild('ESP_Highlight') then
         local Highlight = Instance.new('Highlight', CHARACTER)
         Highlight.Name = 'ESP_Highlight'
@@ -282,6 +289,7 @@ function UPDATE_ESP(CHARACTER, PLAYER_OBJ)
         Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
         Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     end
+    
     local Head = CHARACTER:FindFirstChild('Head')
     if Head and not Head:FindFirstChild('ESP_Tag') then
         local BillboardGui = Instance.new('BillboardGui', Head)
@@ -297,6 +305,7 @@ function UPDATE_ESP(CHARACTER, PLAYER_OBJ)
         TextLabel.TextSize = 13
         TextLabel.Font = Enum.Font.SourceSansBold
     end
+    
     local highlight = CHARACTER:FindFirstChild('ESP_Highlight')
     local tag = Head and Head:FindFirstChild('ESP_Tag')
     local textLabel = tag and tag:FindFirstChildOfClass("TextLabel")
@@ -316,12 +325,15 @@ function UPDATE_ESP(CHARACTER, PLAYER_OBJ)
         end
     end
 end
+
 local AIM_READY = false
 UserInputService.InputBegan:Connect(function(i, g)
     if g then return end
     if i.KeyCode == Enum.KeyCode.R then
         _G.AIM_ENABLED = not _G.AIM_ENABLED
-        if ToggleLabels["AIM_ENABLED"] then ToggleLabels["AIM_ENABLED"]() end
+        if ToggleLabels["AIM_ENABLED"] then 
+            ToggleLabels["AIM_ENABLED"]() 
+        end
         if not _G.AIM_ENABLED then AIM_LOCK = false TARGET = nil end
     end
     if i.KeyCode == Enum.KeyCode.T then TeleportToGunAndBack() end
@@ -329,9 +341,11 @@ UserInputService.InputBegan:Connect(function(i, g)
         AIM_LOCK = true TARGET = GetClosestPlayer()
     end
 end)
+
 UserInputService.InputEnded:Connect(function(i, g)
     if not g and i.UserInputType == Enum.UserInputType.MouseButton2 then AIM_LOCK = false TARGET = nil end
 end)
+
 RunService.RenderStepped:Connect(function()
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= PLAYER and v.Character and v.Character:FindFirstChild('Head') then UPDATE_ESP(v.Character, v) end
@@ -342,6 +356,7 @@ RunService.RenderStepped:Connect(function()
         CC.CFrame = CFrame.new(CC.CFrame.Position, predictedPosition)
     end
 end)
+
 RefreshBtn.MouseButton1Click:Connect(function()
     for _, v in pairs(Players:GetPlayers()) do
         if v.Character then
@@ -353,4 +368,3 @@ RefreshBtn.MouseButton1Click:Connect(function()
     local freshUrl = "https://githubusercontent.com" .. tostring(os.time())
     loadstring(game:HttpGet(freshUrl))()
 end)
-
