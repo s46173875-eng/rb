@@ -2,7 +2,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
--- НАСТРОЙКА: Ваша ссылка
+-- НАСТРОЙКА: Напишите сюда название вашего Telegram-канала
 local MY_TG_LINK = "https://t.me" 
 
 -- Функция для полной очистки старых версий при перезапуске
@@ -10,7 +10,6 @@ local function CleanupExisting()
     if game:CoreGui:FindFirstChild("FlingGui_QueueSystem") then
         game:CoreGui.FlingGui_QueueSystem:Destroy()
     end
-    -- Останавливаем старые глобальные циклы, если они были привязаны к имени
     getgenv().FlingScriptRunning = false
 end
 CleanupExisting()
@@ -27,7 +26,7 @@ local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 MainFrame.Position = UDim2.new(0.35, 0, 0.2, 0)
-MainFrame.Size = UDim2.new(0, 260, 0, 500) -- Увеличили высоту под кнопку перезагрузки
+MainFrame.Size = UDim2.new(0, 260, 0, 500) -- Высота увеличена под кнопку перезапуска
 MainFrame.Active = true
 MainFrame.Draggable = true
 
@@ -52,12 +51,12 @@ TgLabel.Text = "TG: " .. MY_TG_LINK
 TgLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
 TgLabel.TextSize = 13
 
--- Анимация ТГК
+-- Плавная анимация цвета для текста ТГК
 task.spawn(function()
     local hue = 0
     while getgenv().FlingScriptRunning and task.wait(0.02) do
         hue = (hue + 1) % 360
-        TgLabel.TextColor3 = Color3.fromHSV(hue/360, 0.8, 1)
+        TgLabel.TextColor3 = Color3.fromHSV(hue / 360, 0.8, 1)
     end
 end)
 
@@ -103,7 +102,7 @@ PlayersScroll.Size = UDim2.new(0.9, 0, 0, 280)
 PlayersScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 PlayersScroll.ScrollBarThickness = 5
 
--- Кнопка ПЕРЕЗАГРУЗКИ СКРИПТА (внизу)
+-- Кнопка ПЕРЕЗАГРУЗКИ СКРИПТА
 local ReloadBtn = Instance.new("TextButton")
 ReloadBtn.Parent = MainFrame
 ReloadBtn.BackgroundColor3 = Color3.fromRGB(210, 105, 30)
@@ -118,20 +117,18 @@ local UIListLayout = Instance.new("UIListLayout")
 UIListLayout.Parent = PlayersScroll
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Padding = UDim.new(0, 5)
-
 -- Переменные логики
 local antiFlingActive = false
 local flingLoopActive = false
 local selectedPlayers = {}
 
--- Умный Анти-Флинг (Без просадки физики)
+-- Логика защиты (Анти-Флинг)
 local antiFlingConnection
 antiFlingConnection = RunService.Heartbeat:Connect(function()
     if not getgenv().FlingScriptRunning then 
         antiFlingConnection:Disconnect() 
         return 
     end
-    
     if antiFlingActive then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then
@@ -156,7 +153,7 @@ AntiFlingBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Оптимизированная функция создания сил физики (без спама инстансами)
+-- Функции физики скорости
 local function applyFlingVelocity(hrp)
     local att = hrp:FindFirstChild("FlingAttachment") or Instance.new("Attachment", hrp)
     att.Name = "FlingAttachment"
@@ -181,8 +178,8 @@ local function removeFlingVelocity(hrp)
         if hrp:FindFirstChild("FlingLV") then hrp.FlingLV:Destroy() end
         if hrp:FindFirstChild("FlingAV") then hrp.FlingAV:Destroy() end
         if hrp:FindFirstChild("FlingAttachment") then hrp.FlingAttachment:Destroy() end
-        hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
-        hrp.AssemblyAngularVelocity = Vector3.new(0,0,0)
+        hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
     end
 end
 
@@ -200,7 +197,6 @@ task.spawn(function()
                 for targetPlayer, isActive in pairs(selectedPlayers) do
                     if not flingLoopActive or not getgenv().FlingScriptRunning then break end
                     
-                    -- Проверяем, существует ли еще цель в игре
                     if isActive and targetPlayer and targetPlayer.Parent and targetPlayer.Character then
                         local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
                         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -208,24 +204,18 @@ task.spawn(function()
                         
                         if myHRP and targetHRP and myHumanoid and myHumanoid.Health > 0 then
                             myHumanoid.Sit = true
-                            
-                            -- Создаем силы ОДИН раз за атаку на жертву
-                            local lv, av, att = applyFlingVelocity(myHRP)
+                            applyFlingVelocity(myHRP)
                             
                             local duration = 0
                             while duration < 0.4 and flingLoopActive and targetPlayer.Parent and targetPlayer.Character and myHumanoid.Health > 0 do
                                 if not targetHRP or not myHRP then break end
-                                
                                 myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 0.05)
                                 task.wait(0.02)
                                 duration = duration + 0.02
                             end
                             
-                            -- Убираем силы сразу после завершения флинга этой цели
                             removeFlingVelocity(myHRP)
                             if myHumanoid then myHumanoid.Sit = false end
-                            
-                            -- Пауза перед следующей жертвой
                             task.wait(3.0) 
                         end
                     end
@@ -239,7 +229,6 @@ task.spawn(function()
     end
 end)
 
--- Управление кнопкой Старт/Стоп
 StartFlingBtn.MouseButton1Click:Connect(function()
     flingLoopActive = not flingLoopActive
     if flingLoopActive then
@@ -253,79 +242,71 @@ StartFlingBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Оптимизированное обновление списка (БЕЗ тотального Destroy)
+-- Функция авто-обновления списка игроков без лагов
 local function updateList()
     if not getgenv().FlingScriptRunning then return end
     
-    -- Собираем текущие кнопки, чтобы знать кого удалить
     local currentButtons = {}
-for _, child in pairs(PlayersScroll:GetChildren()) do
-    if child:IsA("TextButton") then
-        currentButtons[child.Name] = child
+    for _, child in pairs(PlayersScroll:GetChildren()) do
+        if child:IsA("TextButton") then
+            currentButtons[child.Name] = child
+        end
     end
-end
-
--- Список актуальных игроков для проверки удаления лишних кнопок
-local activeNames = {}
-
-for _, p in pairs(Players:GetPlayers()) do
-    if p ~= LocalPlayer and p.Parent then
-        activeNames[p.Name] = true
-        local PBtn = currentButtons[p.Name]
-        
-        -- Если кнопки для игрока еще нет — создаем её
-        if not PBtn then
-            PBtn = Instance.new("TextButton")
-            PBtn.Name = p.Name
-            PBtn.Size = UDim2.new(1, 0, 0, 30)
-            PBtn.Font = Enum.Font.SourceSans
-            PBtn.TextSize = 14
-            PBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            PBtn.Parent = PlayersScroll
+    
+    local activeNames = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Parent then
+            activeNames[p.Name] = true
+            local PBtn = currentButtons[p.Name]
             
-            PBtn.MouseButton1Click:Connect(function()
-                if p and p.Parent then
-                    selectedPlayers[p] = not selectedPlayers[p]
-                    updateList()
-                end
-            end)
-        end
-        
-        -- Обновляем только внешний вид (не пересоздавая саму кнопку)
-        if selectedPlayers[p] then
-            PBtn.BackgroundColor3 = Color3.fromRGB(45, 140, 45)
-            PBtn.Text = "🎯 " .. p.DisplayName
-        else
-            PBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-            PBtn.Text = p.DisplayName
+            if not PBtn then
+                PBtn = Instance.new("TextButton")
+                PBtn.Name = p.Name
+                PBtn.Size = UDim2.new(1, 0, 0, 30)
+                PBtn.Font = Enum.Font.SourceSans
+                PBtn.TextSize = 14
+                PBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                PBtn.Parent = PlayersScroll
+                
+                PBtn.MouseButton1Click:Connect(function()
+                    if p and p.Parent then
+                        selectedPlayers[p] = not selectedPlayers[p]
+                        updateList()
+                    end
+                end)
+            end
+            
+            if selectedPlayers[p] then
+                PBtn.BackgroundColor3 = Color3.fromRGB(45, 140, 45)
+                PBtn.Text = "🎯 " .. p.DisplayName
+            else
+                PBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+                PBtn.Text = p.DisplayName
+            end
         end
     end
-end
-
--- Удаляем кнопки тех игроков, которые вышли
-for btnName, btnObj in pairs(currentButtons) do
-    if not activeNames[btnName] then
-        btnObj:Destroy()
+    
+    for btnName, btnObj in pairs(currentButtons) do
+        if not activeNames[btnName] then
+            btnObj:Destroy()
+        end
     end
+    
+    PlayersScroll.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
 end
 
-PlayersScroll.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
-end
-
--- Кнопка Сброса целей
 ResetBtn.MouseButton1Click:Connect(function()
     selectedPlayers = {}
     updateList()
 end)
 
--- Авто-обновление по событиям игры
 Players.PlayerAdded:Connect(updateList)
 Players.PlayerRemoving:Connect(function(p)
     selectedPlayers[p] = nil
     updateList()
 end)
 
--- Постоянное фоновое авто-обновление (каждую 1 секунду на всякий случай)
+-- Фоновое ежесекундное обновление
 task.spawn(function()
     while getgenv().FlingScriptRunning do
         updateList()
@@ -338,10 +319,7 @@ ReloadBtn.MouseButton1Click:Connect(function()
     local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     removeFlingVelocity(myHRP)
     CleanupExisting()
-    
-    -- Сообщение в консоль о перезагрузке
     print("Скрипт успешно перезагружен и очищен!")
 end)
 
--- Первый запуск
 updateList()
