@@ -6,21 +6,23 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local PLAYER = Players.LocalPlayer
 local MOUSE = PLAYER:GetMouse()
 local CC = game.Workspace.CurrentCamera
+
 _G.SHOW_MURDERER = false
 _G.SHOW_SHERIFF = false
 _G.SHOW_INNOCENTS = false
 _G.AIM_ENABLED = false
-_G.MOBILE_SHOOT_GUI = false
 local AIM_LOCK = false
 local TARGET = nil
-_G.AIM_BIND = "r"
+_G.AIM_BIND = "y"
 local PREDICTION_COEF = 0.215
+
 if CoreGui:FindFirstChild("MM2_Menu") then
     CoreGui.MM2_Menu:Destroy()
 end
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 ScreenGui.Name = "MM2_Menu"
 ScreenGui.ResetOnSpawn = false
+
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Size = UDim2.new(0, 360, 0, 255)
 MainFrame.Position = UDim2.new(0.5, -180, 0.4, -127)
@@ -28,8 +30,10 @@ MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
+
 local MainCorner = Instance.new("UICorner", MainFrame)
 MainCorner.CornerRadius = UDim.new(0, 6)
+
 local CloseBtn = Instance.new("TextButton", MainFrame)
 CloseBtn.Size = UDim2.new(0, 25, 0, 25)
 CloseBtn.Position = UDim2.new(1, -30, 0, 5)
@@ -38,6 +42,7 @@ CloseBtn.Text = "✕"
 CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
 CloseBtn.Font = Enum.Font.SourceSansBold
 CloseBtn.TextSize = 18
+
 local MiniFrame = Instance.new("TextButton", ScreenGui)
 MiniFrame.Size = UDim2.new(0, 45, 0, 45)
 MiniFrame.Position = UDim2.new(0.5, -22, 0.4, -22)
@@ -50,13 +55,16 @@ MiniFrame.TextSize = 14
 MiniFrame.Visible = false
 MiniFrame.Active = true
 MiniFrame.Draggable = true
+
 local MiniCorner = Instance.new("UICorner", MiniFrame)
 MiniCorner.CornerRadius = UDim.new(0, 6)
+
 CloseBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = false
     MiniFrame.Position = UDim2.new(0, MainFrame.AbsolutePosition.X, 0, MainFrame.AbsolutePosition.Y)
     MiniFrame.Visible = true
 end)
+
 MiniFrame.MouseButton1Click:Connect(function()
     MiniFrame.Visible = false
     MainFrame.Position = UDim2.new(0, MainFrame.AbsolutePosition.X, 0, MainFrame.AbsolutePosition.Y)
@@ -66,22 +74,27 @@ local TabContainer = Instance.new("Frame", MainFrame)
 TabContainer.Size = UDim2.new(0, 110, 1, -35)
 TabContainer.Position = UDim2.new(0, 5, 0, 5)
 TabContainer.BackgroundTransparency = 1
+
 local PagesContainer = Instance.new("Frame", MainFrame)
 PagesContainer.Size = UDim2.new(1, -125, 1, -35)
 PagesContainer.Position = UDim2.new(0, 120, 0, 5)
 PagesContainer.BackgroundTransparency = 1
+
 local EspPage = Instance.new("Frame", PagesContainer)
 EspPage.Size = UDim2.new(1, 0, 1, 0)
 EspPage.BackgroundTransparency = 1
 EspPage.Visible = true
+
 local AimPage = Instance.new("Frame", PagesContainer)
 AimPage.Size = UDim2.new(1, 0, 1, 0)
 AimPage.BackgroundTransparency = 1
 AimPage.Visible = false
+
 local MiscPage = Instance.new("Frame", PagesContainer)
 MiscPage.Size = UDim2.new(1, 0, 1, 0)
 MiscPage.BackgroundTransparency = 1
 MiscPage.Visible = false
+
 local TgcLabel = Instance.new("TextLabel", MainFrame)
 TgcLabel.Size = UDim2.new(1, -10, 0, 20)
 TgcLabel.Position = UDim2.new(0, 5, 1, -22)
@@ -91,12 +104,14 @@ TgcLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
 TgcLabel.Font = Enum.Font.SourceSansBold
 TgcLabel.TextSize = 13
 TgcLabel.TextXAlignment = Enum.TextXAlignment.Center
+
 local function SwitchTab(pageToShow)
     EspPage.Visible = false
     AimPage.Visible = false
     MiscPage.Visible = false
     pageToShow.Visible = true
 end
+
 local function CreateTabBtn(text, pos, page)
     local TabBtn = Instance.new("TextButton", TabContainer)
     TabBtn.Size = UDim2.new(1, 0, 0, 35)
@@ -114,9 +129,11 @@ local function CreateTabBtn(text, pos, page)
     end)
     return TabBtn
 end
+
 local EspTab = CreateTabBtn("ESP", UDim2.new(0, 0, 0, 10), EspPage)
 local AimTab = CreateTabBtn("AIM BOT", UDim2.new(0, 0, 0, 50), AimPage)
 local MiscTab = CreateTabBtn("РАЗНОЕ", UDim2.new(0, 0, 0, 90), MiscPage)
+
 local function CreatePageTitle(text, parent)
     local Title = Instance.new("TextLabel", parent)
     Title.Size = UDim2.new(1, 0, 0, 25)
@@ -128,9 +145,11 @@ local function CreatePageTitle(text, parent)
     Title.TextSize = 15
     Title.TextXAlignment = Enum.TextXAlignment.Left
 end
+
 CreatePageTitle("ВИЗУАЛЬНЫЕ НАСТРОЙКИ", EspPage)
 CreatePageTitle("НАСТРОЙКИ АИМБОТА", AimPage)
 CreatePageTitle("ДОПОЛНИТЕЛЬНО", MiscPage)
+
 local ToggleLabels = {}
 local function CreateToggle(text, pos, state_var, color, parentPage)
     local LabelBtn = Instance.new("TextButton", parentPage)
@@ -140,6 +159,7 @@ local function CreateToggle(text, pos, state_var, color, parentPage)
     LabelBtn.Font = Enum.Font.SourceSansBold
     LabelBtn.TextSize = 15
     LabelBtn.TextXAlignment = Enum.TextXAlignment.Left
+    
     local function refresh()
         if _G[state_var] then
             LabelBtn.Text = text .. " - ✅"
@@ -156,21 +176,22 @@ local function CreateToggle(text, pos, state_var, color, parentPage)
         refresh()
     end)
 end
+
 CreateToggle("Убийца", UDim2.new(0, 0, 0, 35), "SHOW_MURDERER", Color3.fromRGB(255, 50, 50), EspPage)
 CreateToggle("Шериф", UDim2.new(0, 0, 0, 65), "SHOW_SHERIFF", Color3.fromRGB(50, 150, 255), EspPage)
 CreateToggle("Невинный", UDim2.new(0, 0, 0, 95), "SHOW_INNOCENTS", Color3.fromRGB(50, 255, 50), EspPage)
 CreateToggle("Активировать AIM [R]", UDim2.new(0, 0, 0, 35), "AIM_ENABLED", Color3.fromRGB(255, 80, 80), AimPage)
-CreateToggle("Кнопка стрельбы", UDim2.new(0, 0, 0, 65), "MOBILE_SHOOT_GUI", Color3.fromRGB(0, 200, 255), AimPage)
 local GunDropBtn = Instance.new("TextButton", MiscPage)
 GunDropBtn.Size = UDim2.new(1, 0, 0, 35)
 GunDropBtn.Position = UDim2.new(0, 0, 0, 35)
 GunDropBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-GunDropBtn.Text = "ПОДОБРАТЬ ПИСТОЛЕТ [T]"
+GunDropBtn.Text = "ПОДОБРАТЬ ПИСТОЛЕТ [Y]"
 GunDropBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
 GunDropBtn.Font = Enum.Font.SourceSansBold
 GunDropBtn.TextSize = 14
 local gunCorner = Instance.new("UICorner", GunDropBtn)
 gunCorner.CornerRadius = UDim.new(0, 4)
+
 local RefreshBtn = Instance.new("TextButton", MiscPage)
 RefreshBtn.Size = UDim2.new(1, 0, 0, 35)
 RefreshBtn.Position = UDim2.new(0, 0, 0, 75)
@@ -182,44 +203,44 @@ RefreshBtn.TextSize = 14
 RefreshBtn.BorderSizePixel = 0
 local RefCorner = Instance.new("UICorner", RefreshBtn)
 RefCorner.CornerRadius = UDim.new(0, 4)
-local MobileShootBtn = Instance.new("TextButton", ScreenGui)
-MobileShootBtn.Name = "MobileShootButton"
-MobileShootBtn.Size = UDim2.new(0, 65, 0, 65)
-MobileShootBtn.Position = UDim2.new(0.75, 0, 0.5, 0)
-MobileShootBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-MobileShootBtn.BackgroundTransparency = 0.3
-MobileShootBtn.Text = "🔥"
-MobileShootBtn.TextSize = 28
-MobileShootBtn.TextColor3 = Color3.new(1, 1, 1)
-MobileShootBtn.Font = Enum.Font.SourceSansBold
-MobileShootBtn.Visible = false
-MobileShootBtn.Active = true
-MobileShootBtn.Draggable = true
-local ShootCorner = Instance.new("UICorner", MobileShootBtn)
-ShootCorner.CornerRadius = UDim.new(1, 0)
-local ShootStroke = Instance.new("UIStroke", MobileShootBtn)
-ShootStroke.Color = Color3.new(1, 1, 1)
-ShootStroke.Thickness = 2
-task.spawn(function()
-    while true do
-        if MobileShootBtn.Visible ~= _G.MOBILE_SHOOT_GUI then
-            MobileShootBtn.Visible = _G.MOBILE_SHOOT_GUI
+local function TeleportToGunAndBack()
+    if not PLAYER.Character then return end
+    local root = PLAYER.Character:FindFirstChild("HumanoidRootPart")
+    local backpack = PLAYER:FindFirstChild("Backpack")
+    if not root or not backpack then return end
+    
+    local gunDrop = game.Workspace:FindFirstChild("GunDrop", true) or game.Workspace:FindFirstChild("LugerDrop", true)
+    if gunDrop and (gunDrop:IsA("BasePart") or gunDrop:IsA("Model")) then
+        local targetCFrame = gunDrop:IsA("Model") and gunDrop:GetPivot() or gunDrop.CFrame
+        if targetCFrame then
+            local oldCFrame = root.CFrame
+            root.CFrame = targetCFrame + Vector3.new(0, 1, 0)
+            local startTime = os.clock()
+            while os.clock() - startTime < 1.5 do
+                local hasGun = backpack:FindFirstChild("Gun") or backpack:FindFirstChild("Python") or PLAYER.Character:FindFirstChild("Gun") or PLAYER.Character:FindFirstChild("Python")
+                if hasGun then break end
+                task.wait(0.05)
+            end
+            
+            root.CFrame = oldCFrame
         end
-        task.wait(0.2)
     end
-end)
+end
+
+GunDropBtn.MouseButton1Click:Connect(TeleportToGunAndBack)
 local function GetRole(player)
     if not player or not player:FindFirstChild("Backpack") or not player.Character then return "Innocent" end
-    if player.Backpack:FindFirstChild("Knife") or player.Character:FindFirstChild("Knife") then return "Murderer" end
-    if player.Backpack:FindFirstChild("Gun") or player.Character:FindFirstChild("Gun") then return "Sheriff" end
+    if player.Backpack:FindFirstChild("Knife") or player.Character:FindFirstChild("Knife") or player.Character:FindFirstChildOfClass("Tool") and player.Character:FindFirstChildOfClass("Tool").Name:lower():match("knife") then return "Murderer" end
+    if player.Backpack:FindFirstChild("Gun") or player.Character:FindFirstChild("Gun") or player.Character:FindFirstChildOfClass("Tool") and player.Character:FindFirstChildOfClass("Tool").Name:lower():match("gun") then return "Sheriff" end
     return "Innocent"
 end
+
 function GetClosestPlayer()
     if not _G.AIM_ENABLED then return nil end
     local closest = nil
     local shortestDist = math.huge
     for _, v in pairs(Players:GetPlayers()) do
-        if v ~= PLAYER and v.Character and v.Character:FindFirstChild("Head") then
+        if v ~= PLAYER and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
             local pos, onScreen = CC:WorldToViewportPoint(v.Character.Head.Position)
             if onScreen then
                 local dist = (Vector2.new(pos.X, pos.Y) - Vector2.new(MOUSE.X, MOUSE.Y)).Magnitude
@@ -232,41 +253,6 @@ function GetClosestPlayer()
     end
     return closest
 end
-local function TeleportToGunAndBack()
-    if not PLAYER.Character then return end
-    local root = PLAYER.Character:FindFirstChild("HumanoidRootPart")
-    local gunDrop = game.Workspace:FindFirstChild("GunDrop", true) or game.Workspace:FindFirstChild("LugerDrop", true)
-    if root and gunDrop and (gunDrop:IsA("BasePart") or gunDrop:IsA("Model")) then
-                local targetCFrame = gunDrop:IsA("Model") and gunDrop:GetPivot() or gunDrop.CFrame
-        if targetCFrame then
-            local oldCFrame = root.CFrame
-            root.CFrame = targetCFrame
-            task.wait(0.15)
-            root.CFrame = oldCFrame
-        end
-    end
-end
-
-GunDropBtn.MouseButton1Click:Connect(TeleportToGunAndBack)
-
-local function TriggerAutoShoot()
-    if not _G.AIM_ENABLED then return end
-    local currentGun = PLAYER.Character:FindFirstChild("Gun") or PLAYER.Character:FindFirstChild("Python")
-    if not currentGun then return end
-    local currentTarget = GetClosestPlayer()
-    if currentTarget and currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart") then
-        local bodyPart = currentTarget.Character.HumanoidRootPart
-        local predictedPosition = bodyPart.Position + (bodyPart.Velocity * PREDICTION_COEF)
-        CC.CFrame = CFrame.new(CC.CFrame.Position, predictedPosition)
-        task.wait(0.02)
-        local shootEvent = currentGun:FindFirstChild("ShootGun") or game:GetService("ReplicatedStorage"):FindFirstChild("ShootGun", true)
-        if shootEvent and shootEvent:IsA("RemoteEvent") then
-            shootEvent:FireServer(predictedPosition, bodyPart)
-        end
-    end
-end
-
-MobileShootBtn.MouseButton1Click:Connect(TriggerAutoShoot)
 
 function UPDATE_ESP(CHARACTER, PLAYER_OBJ)
     if not CHARACTER or not PLAYER_OBJ then return end
@@ -309,6 +295,7 @@ function UPDATE_ESP(CHARACTER, PLAYER_OBJ)
     local highlight = CHARACTER:FindFirstChild('ESP_Highlight')
     local tag = Head and Head:FindFirstChild('ESP_Tag')
     local textLabel = tag and tag:FindFirstChildOfClass("TextLabel")
+    
     if highlight and textLabel then
         if role == "Murderer" then
             highlight.FillColor = Color3.fromRGB(255, 0, 0)
@@ -325,8 +312,6 @@ function UPDATE_ESP(CHARACTER, PLAYER_OBJ)
         end
     end
 end
-
-local AIM_READY = false
 UserInputService.InputBegan:Connect(function(i, g)
     if g then return end
     if i.KeyCode == Enum.KeyCode.R then
@@ -336,7 +321,7 @@ UserInputService.InputBegan:Connect(function(i, g)
         end
         if not _G.AIM_ENABLED then AIM_LOCK = false TARGET = nil end
     end
-    if i.KeyCode == Enum.KeyCode.T then TeleportToGunAndBack() end
+    if i.KeyCode == Enum.KeyCode.Y then TeleportToGunAndBack() end
     if i.UserInputType == Enum.UserInputType.MouseButton2 and _G.AIM_ENABLED then
         AIM_LOCK = true TARGET = GetClosestPlayer()
     end
@@ -345,15 +330,45 @@ end)
 UserInputService.InputEnded:Connect(function(i, g)
     if not g and i.UserInputType == Enum.UserInputType.MouseButton2 then AIM_LOCK = false TARGET = nil end
 end)
-
 RunService.RenderStepped:Connect(function()
     for _, v in pairs(Players:GetPlayers()) do
-        if v ~= PLAYER and v.Character and v.Character:FindFirstChild('Head') then UPDATE_ESP(v.Character, v) end
+        if v ~= PLAYER and v.Character and v.Character:FindFirstChild('Head') then 
+            UPDATE_ESP(v.Character, v) 
+        end
     end
     if AIM_LOCK and TARGET and TARGET.Character and TARGET.Character:FindFirstChild("HumanoidRootPart") then
         local bodyPart = TARGET.Character.HumanoidRootPart
         local predictedPosition = bodyPart.Position + (bodyPart.Velocity * PREDICTION_COEF)
         CC.CFrame = CFrame.new(CC.CFrame.Position, predictedPosition)
+    end
+end)
+UserInputService.TouchTap:Connect(function(touchPositions, processedByUI)
+    if processedByUI or not _G.AIM_ENABLED then return end
+    local currentGun = PLAYER.Character and (PLAYER.Character:FindFirstChild("Gun") or PLAYER.Character:FindFirstChild("Python"))
+    if not currentGun then return end
+    local tapPos = touchPositions
+    if not tapPos then return end
+
+    local murdererTarget = nil
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= PLAYER and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
+            if GetRole(v) == "Murderer" then
+                murdererTarget = v
+                break
+            end
+        end
+    end
+
+    local shootEvent = currentGun:FindFirstChild("ShootGun") or game:GetService("ReplicatedStorage"):FindFirstChild("ShootGun", true)
+    if shootEvent and shootEvent:IsA("RemoteEvent") then
+        if murdererTarget then
+            local targetPart = murdererTarget.Character.HumanoidRootPart
+            shootEvent:FireServer(targetPart.Position, targetPart)
+        else
+            local ray = CC:ViewportPointToRay(tapPos.X, tapPos.Y)
+            local targetPos = ray.Origin + ray.Direction * 100
+            shootEvent:FireServer(targetPos, nil)
+        end
     end
 end)
 
@@ -365,6 +380,16 @@ RefreshBtn.MouseButton1Click:Connect(function()
         end
     end
     if ScreenGui then ScreenGui:Destroy() end
-    local freshUrl = "https://githubusercontent.com" .. tostring(os.time())
-    loadstring(game:HttpGet(freshUrl))()
+    
+    local H = string.char(104,116,116,112,115,58,47,47,114,97,119,46,103,105,116,104,117,98,117,115,101,114,99,111,110,116,101,110,116,46,99,111,109,47) 
+    local U = "s46173875-eng" 
+    local R = "rb" 
+    local F = "mm2_V2.lua" 
+    
+    local freshUrl = H .. U .. "/" .. R .. "/main/" .. F .. "?nocache=" .. tostring(os.time())
+    local success, result = pcall(function() return game:HttpGet(freshUrl) end)
+    if success and result then
+        local func, err = loadstring(result)
+        if func then func() else warn(err) end
+    end
 end)
