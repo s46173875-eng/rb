@@ -20,11 +20,10 @@ _G.AIM_AT = 'Head' -- 'Head' или 'Torso'
 
 -- === НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ФИКСАЦИИ ЦЕЛИ ===
 local LOCKED_TARGET = nil      -- Зафиксированный игрок
-local LOCK_DISTANCE = 500      -- Дистанция, на которой цель остается зафиксированной
-local UNLOCK_DISTANCE = 600    -- Дистанция, на которой цель отпускается (чуть больше для гистерезиса)
+local UNLOCK_DISTANCE = 600    -- Дистанция, на которой цель отпускается
 
 -- === ОБНОВЛЕННЫЕ НАСТРОЙКИ СКОРОСТИ И ФИКСАЦИИ ===
-local FOV_RADIUS = 90          -- Увеличенный радиус круга FOV по запросу
+local FOV_RADIUS = 90
 local FOV_COLOR = Color3.fromRGB(255, 255, 255) 
 
 -- Рисуем FOV круг через Drawing API
@@ -73,38 +72,24 @@ local function IsPlayerAlive(player)
     return hum and hum.Health > 0
 end
 
--- Проверка, виден ли игрок (в FOV)
-local function IsPlayerInFOV(player)
-    if not player or not player.Character then return false end
-    local targetPart = GetAimPart(player.Character)
-    if not targetPart then return false end
-    local inFov, _ = IsInFOV(targetPart.Position)
-    return inFov
-end
-
 -- Поиск ближайшего игрока с учетом фиксации
 local function GetNearestPlayerToMouse()
     -- Если есть зафиксированная цель - проверяем её
     if LOCKED_TARGET then
-        -- Проверяем, жив ли игрок
         if IsPlayerAlive(LOCKED_TARGET) then
             local targetPart = GetAimPart(LOCKED_TARGET.Character)
             if targetPart then
-                -- Проверяем расстояние до цели в мировых координатах
                 local worldDist = (CC.CFrame.Position - targetPart.Position).Magnitude
                 
-                -- Если цель слишком далеко - отпускаем
                 if worldDist > UNLOCK_DISTANCE then
                     LOCKED_TARGET = nil
-                    return GetNearestPlayerToMouse() -- Рекурсивно ищем новую цель
+                    return GetNearestPlayerToMouse()
                 end
                 
-                -- Проверяем FOV (но с увеличенным радиусом для удержания)
                 local inFov, distToCenter = IsInFOV(targetPart.Position)
                 if inFov then
                     return LOCKED_TARGET, distToCenter
                 else
-                    -- Если цель вышла из FOV, но недалеко - всё равно держим
                     local screenPos, onScreen = CC:WorldToViewportPoint(targetPart.Position)
                     if onScreen then
                         local mousePos = Vector2.new(CC.ViewportSize.X / 2, CC.ViewportSize.Y / 2)
@@ -117,11 +102,10 @@ local function GetNearestPlayerToMouse()
             end
         end
         
-        -- Если цель умерла или вышла за пределы - отпускаем
         LOCKED_TARGET = nil
     end
     
-    -- Поиск новой цели (только если нет зафиксированной)
+    -- Поиск новой цели
     local closestPlayer = nil
     local shortestDistance = math.huge
 
@@ -145,7 +129,6 @@ local function GetNearestPlayerToMouse()
         end
     end
     
-    -- Если нашли цель - фиксируем её
     if closestPlayer then
         LOCKED_TARGET = closestPlayer
     end
@@ -153,9 +136,54 @@ local function GetNearestPlayerToMouse()
     return closestPlayer, shortestDistance
 end
 
--- Сброс фиксации при отпускании кнопки
+-- Сброс фиксации
 local function ResetLock()
     LOCKED_TARGET = nil
+end
+
+-- Функция добавления/удаления друга
+local function ToggleFriend(targetPlayer)
+    if not targetPlayer then return end
+    
+    if FriendsList[targetPlayer.UserId] then
+        FriendsList[targetPlayer.UserId] = nil
+        if targetPlayer.Character then
+            local hl = targetPlayer.Character:FindFirstChild('ESP_Highlight')
+            if hl then hl.FillColor = Color3.fromRGB(255, 60, 60) end
+        end
+        print("Удален из друзей: " .. targetPlayer.Name)
+    else
+        FriendsList[targetPlayer.UserId] = true
+        if targetPlayer.Character then
+            local hl = targetPlayer.Character:FindFirstChild('ESP_Highlight')
+            if hl then hl.FillColor = Color3.fromRGB(60, 255, 60) end
+        end
+        print("Добавлен в друзья: " .. targetPlayer.Name)
+    end
+end
+
+-- Поиск игрока под прицелом для добавления в друзья
+local function GetTargetedPlayer()
+    local targetPlayer = nil
+    local shortestDistance = math.huge
+    
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= PLAYER and v.Character then
+            local targetPart = GetAimPart(v.Character)
+            if targetPart then
+                local inFov, distToCenter = IsInFOV(targetPart.Position)
+                if inFov and distToCenter < shortestDistance then
+                    local hum = v.Character:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        shortestDistance = distToCenter
+                        targetPlayer = v
+                    end
+                end
+            end
+        end
+    end
+    
+    return targetPlayer
 end
 
 -- === СОЗДАНИЕ ИНТЕРФЕЙСА (GUI) ===
@@ -185,6 +213,16 @@ GUI_AIM_AT.TextColor3 = Color3.new(1,1,1)
 GUI_AIM_AT.TextSize = 13
 GUI_AIM_AT.Font = Enum.Font.SourceSansBold
 
+local GUI_FRIEND_HINT = Instance.new('TextLabel', GUI_MAIN)
+GUI_FRIEND_HINT.Size = UDim2.new(0,200,0,20)
+GUI_FRIEND_HINT.BackgroundTransparency = 0.6
+GUI_FRIEND_HINT.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+GUI_FRIEND_HINT.BorderSizePixel = 0
+GUI_FRIEND_HINT.Position = UDim2.new(0.5,-100,0,55)
+GUI_FRIEND_HINT.Text = 'ALT+ПКМ - ДОБАВИТЬ В ДРУЗЬЯ'
+GUI_FRIEND_HINT.TextColor3 = Color3.fromRGB(200, 200, 200)
+GUI_FRIEND_HINT.TextSize = 12
+GUI_FRIEND_HINT.Font = Enum.Font.SourceSansBold
 
 -- === ЛОГИКА ESP И ОБНОВЛЕНИЯ ДАННЫХ ===
 local function CREATE_ESP(character, player)
@@ -293,12 +331,12 @@ task.spawn(function()
                                 local hpPercent = math.floor((hum.Health / hum.MaxHealth) * 100)
                                 
                                 local lockedText = (LOCKED_TARGET == v) and " [🔒]" or ""
-                                nameLabel.Text = string.format("%s | %dM%s", v.Name:upper(), distance, lockedText)
+                                local friendText = FriendsList[v.UserId] and " ⭐" or ""
+                                nameLabel.Text = string.format("%s | %dM%s%s", v.Name:upper(), distance, lockedText, friendText)
                                 hpLabel.Text = string.format("[%d%%]", hpPercent)
                             end
                         end
                     else
-                        -- Очистка если игрок умер
                         local hl = v.Character:FindFirstChild('ESP_Highlight')
                         if hl then hl:Destroy() end
                         local tag = head and head:FindFirstChild('ESP_Tag')
@@ -317,9 +355,17 @@ local CURRENT_FOV = FOV_RADIUS or 90
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     
+    -- ALT + ПКМ для добавления в друзья
+    if input.UserInputType == Enum.UserInputType.MouseButton2 and UserInputService:IsKeyDown(Enum.KeyCode.LeftAlt) then
+        local targetPlayer = GetTargetedPlayer()
+        if targetPlayer then
+            ToggleFriend(targetPlayer)
+        end
+        return
+    end
+    
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
         ENABLED = true
-        -- Сбрасываем фиксацию при новом нажатии
         ResetLock()
     elseif input.KeyCode == _G.ESP_BIND then
         ESP_ENABLED = not ESP_ENABLED
@@ -339,46 +385,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
             _G.AIM_AT = 'Head'
             GUI_AIM_AT.Text = 'AIMING : HEAD'
         end
-        -- Сбрасываем фиксацию при смене цели
         ResetLock()
-    -- КЛАВИША ДОБАВЛЕНИЯ В ДРУЗЬЯ (Правый Ctrl)
-    elseif input.KeyCode == Enum.KeyCode.RightControl then
-        local targetPlayer = nil
-        local shortestDistance = math.huge
-        
-        for _, v in pairs(Players:GetPlayers()) do
-            if v ~= PLAYER and v.Character then
-                local targetPart = GetAimPart(v.Character)
-                if targetPart then
-                    local inFov, distToCenter = IsInFOV(targetPart.Position)
-                    if inFov and distToCenter < shortestDistance then
-                        local hum = v.Character:FindFirstChildOfClass("Humanoid")
-                        if hum and hum.Health > 0 then
-                            shortestDistance = distToCenter
-                            targetPlayer = v
-                        end
-                    end
-                end
-            end
-        end
-
-        if targetPlayer then
-            if FriendsList[targetPlayer.UserId] then
-                FriendsList[targetPlayer.UserId] = nil
-                if targetPlayer.Character then
-                    local hl = targetPlayer.Character:FindFirstChild('ESP_Highlight')
-                    if hl then hl.FillColor = Color3.fromRGB(255, 60, 60) end
-                end
-                print("Удален из друзей: " .. targetPlayer.Name)
-            else
-                FriendsList[targetPlayer.UserId] = true
-                if targetPlayer.Character then
-                    local hl = targetPlayer.Character:FindFirstChild('ESP_Highlight')
-                    if hl then hl.FillColor = Color3.fromRGB(60, 255, 60) end
-                end
-                print("Добавлен в друзья: " .. targetPlayer.Name)
-            end
-        end
     end
 end)
 
@@ -401,13 +408,11 @@ RunService.RenderStepped:Connect(function()
         if TARGET and TARGET.Character then
             local targetPart = GetAimPart(TARGET.Character)
             if targetPart then
-                -- УСИЛЕННЫЙ МАГНИТ: более агрессивное наведение
-                local startSmoothness = 0.08  -- Увеличено с 0.04 для более сильного магнита
-                local maxSmoothness = 0.35    -- Увеличено с 0.20 для более быстрого наведения
+                local startSmoothness = 0.08
+                local maxSmoothness = 0.35
                 
-                -- Если цель зафиксирована, используем максимальную скорость
+                local currentSmoothness
                 if LOCKED_TARGET == TARGET then
-                    -- Ещё сильнее магнит для зафиксированной цели
                     currentSmoothness = 0.25
                 else
                     local proximity = 1 - math.clamp(distToCenter / CURRENT_FOV, 0, 1)
@@ -423,7 +428,6 @@ RunService.RenderStepped:Connect(function()
         end
     else
         GUI_TARGET.Text = 'AIMBOT : OFF'
-        -- Сбрасываем фиксацию если аимбот выключен
         if LOCKED_TARGET then
             ResetLock()
         end
